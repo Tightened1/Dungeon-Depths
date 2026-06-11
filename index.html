@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dungeon Depths</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="root">
+  <div id="hdr">
+    <div id="hdr-title">⚔ DUNGEON DEPTHS</div>
+    <div id="hdr-right">
+      <span>Floor <span class="hval" id="hdr-floor">1</span></span>
+      <span>Turn <span class="hval" id="hdr-turn">0</span></span>
+      <span>Bosses <span class="hval" id="hdr-bosses">0</span></span>
+      <span id="hdr-diff" style="color:#c95e5e"></span>
+      <span id="hdr-fail" style="color:#e87a3a"></span>
+    </div>
+  </div>
+  <div id="main">
+    <div id="canvas-col">
+      <canvas id="gc"></canvas><canvas id="rc"></canvas><canvas id="ac"></canvas>
+      <div id="floor-summary"></div>
+      <div id="floor-intro"><div class="fi-depth"></div><div class="fi-name"></div></div>
+      <div id="boss-bar-wrap"><div id="boss-bar-name"></div><div id="boss-bar-track"><div id="boss-bar-fill"></div><div id="boss-bar-hp"></div></div></div>
+      <div id="inv-overlay" class="overlay">
+        <div class="ov-hdr"><div class="ov-title">INVENTORY</div><div style="display:flex;gap:14px;align-items:center"><span style="font-size:11px;color:#c9a227">Gold: <span id="inv-gold-amt">0</span></span><span class="ov-close" onclick="closeInv()">✕</span></div></div>
+        <div id="inv-body">
+          <div id="inv-list-col"></div>
+          <div id="inv-detail">
+            <div id="idc-empty">Select an item to inspect</div>
+            <div id="idc-content">
+              <div id="idc-name"></div><div id="idc-sub"></div><div id="idc-stats"></div><div id="idc-affixes"></div><div id="idc-desc"></div><div id="idc-acts"></div>
+              <div id="upg-box"><div id="upg-title">UPGRADE FORGE</div><div id="upg-stats"></div><button id="upg-btn" onclick="doUpgrade()"></button><div id="upg-lvl"></div></div>
+              <div id="conf-box"><p>Permanently discard this item?</p><div style="display:flex;gap:5px"><button class="iact disc-btn" onclick="confirmDiscard()">Confirm</button><button class="iact" onclick="cancelDiscard()">Cancel</button></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="merch-overlay" class="overlay">
+        <div class="ov-hdr"><div class="ov-title">⚗ THE WANDERING MERCHANT</div><span class="ov-close" onclick="closeMerch()">✕</span></div>
+        <div id="merch-body">
+          <div id="merch-sell"><div id="merch-sell-hdr">YOUR ITEMS — SELECT UP TO 8 TO SELL</div><div id="merch-sell-list"></div><div id="merch-sell-total">Selected: <span id="merch-sel-count">0</span>/8 | Value: <span id="merch-sel-val">0</span>g</div></div>
+          <div id="merch-buy"><div id="merch-buy-hdr"><span>MERCHANT WARES</span><span id="merch-buy-gold" style="color:#c9a227;font-size:10px">Gold: 0</span></div><div id="merch-buy-list"></div><div id="merch-footer"><div id="merch-gold-disp">Gold: <span id="merch-gold-val">0</span></div><button id="merch-sell-btn" onclick="doMerchSell()" disabled>Sell Selected</button></div></div>
+        </div>
+      </div>
+      <!-- RELIC SELECTION OVERLAY -->
+      <div id="relic-overlay" class="overlay">
+        <div class="ov-hdr"><div class="ov-title">✦ RELIC BESTOWED</div></div>
+        <div id="relic-body">
+          <div id="relic-subtitle">Choose one relic to carry into the depths</div>
+          <div id="relic-cards"></div>
+        </div>
+      </div>
+      <div id="tree-overlay" class="overlay">
+        <div class="ov-hdr"><div class="ov-title">⚜ SKILL TREE</div><div style="display:flex;gap:14px;align-items:center"><span style="font-size:10px;color:#c9a227">Skill Points: <span id="tree-pts-hdr">0</span></span><span class="ov-close" onclick="closeTree()">✕</span></div></div>
+        <div id="tree-body"><div id="tree-left"><div class="stitle" style="margin-bottom:6px">Specialisation</div><div id="tree-path-btns"></div></div><div id="tree-main"><div id="tree-path-label"></div><div id="tree-pts-disp"></div><div id="tree-nodes"></div></div></div>
+      </div>
+    </div>
+    <div id="side">
+      <div class="spanel">
+        <div class="stitle">Hero</div>
+        <div class="srow"><span id="s-class">-</span><span class="sv" id="s-lvl">Lv1</span></div>
+        <div id="s-spec" style="font-size:9px;color:#7a6a9a;margin-bottom:2px"></div>
+        <div style="font-size:8px;color:#4a3a5a;margin:2px 0 1px">HP</div>
+        <div class="bar-wrap"><div class="bar-fill" id="hp-bar" style="width:100%;background:#8b2020"></div></div>
+        <div class="srow"><span id="hp-txt" style="font-size:9px">-/-</span></div>
+        <div style="font-size:8px;color:#2a4a2a;margin:2px 0 1px">XP</div>
+        <div class="bar-wrap"><div class="bar-fill" id="xp-bar" style="width:0%;background:#2a6a2a"></div></div>
+        <div class="srow"><span id="xp-txt" style="font-size:9px">0/10</span></div>
+        <div style="margin-top:3px">
+          <div class="srow"><span>ATK</span><span class="sv g" id="s-atk">-</span></div>
+          <div class="srow"><span>DEF</span><span class="sv b" id="s-def">-</span></div>
+          <div class="srow"><span>Gold</span><span class="sv" id="s-gold">0</span></div>
+          <div class="srow"><span>Skill Pts</span><span class="sv" id="s-spts">0</span></div>
+        </div>
+      </div>
+      <div class="spanel">
+        <div class="stitle">Equipped</div>
+        <div class="erow"><span>Wpn</span><span id="e-weapon">-</span></div>
+        <div class="erow"><span>Arm</span><span id="e-armor">-</span></div>
+        <div class="erow"><span>Ring</span><span id="e-ring">-</span></div>
+        <div class="erow"><span>Aml</span><span id="e-amulet">-</span></div>
+      </div>
+      <div id="relic-panel" class="spanel" style="display:none">
+        <div class="stitle">Relics</div>
+        <div id="relic-pip-row"></div>
+      </div>
+      <div id="build-panel" class="spanel" style="display:none">
+        <div class="stitle">Build <span id="build-syn-count" style="color:#c9a227;font-size:7px"></span></div>
+        <div id="build-list"></div>
+      </div>
+      <div id="minimap-panel" class="spanel">
+        <div class="stitle">Map — Floor <span id="mm-floor">1</span></div>
+        <canvas id="minimap-canvas" height="60"></canvas>
+        <div id="mm-legend">
+          <span><i style="background:#e8c840"></i>You</span>
+          <span><i style="background:#cc3333"></i>Enemy</span>
+          <span><i style="background:#5ad0ff"></i>Item</span>
+          <span><i style="background:#a870f0"></i>Stairs</span>
+          <span><i style="background:#e8a030"></i>Merchant</span>
+        </div>
+      </div>
+      <div id="abil-tooltip"></div>
+      <div id="abil-panel">
+        <div class="stitle">Abilities <span id="abil-hint" style="color:#c9a227;font-size:7px"></span></div>
+        <div id="abil-list"></div>
+      </div>
+      <button id="inv-btn" onclick="openInv()">[I] Inventory (<span id="inv-cnt">0</span>)</button>
+      <button id="tree-btn" onclick="openTree()">[T] Skill Tree (pts: <span id="tree-pts-btn">0</span>)</button>
+      <div id="log-area"><div class="stitle">Log</div><div id="log-inner"></div></div>
+    </div>
+  </div>
+  <div id="ctrl-bar">
+    <span><span class="ck">WASD</span> move</span>
+    <span><span class="ck">1-8</span> abilities</span>
+    <span><span class="ck">I</span> inventory</span>
+    <span><span class="ck">T</span> skill tree</span>
+    <span><span class="ck">Enter</span> stairs/merchant</span>
+    <span><span class="ck">F</span> first-person</span>
+    <span id="fl-bar" style="margin-left:auto;color:#3a2a5a">Floor 1</span>
+  </div>
+</div>
+<script src="core.js"></script>
+<script src="world.js"></script>
+<script src="combat.js"></script>
+<script src="interface.js"></script>
+<script src="render.js"></script>
+<script src="draw.js"></script>
+<script src="shell.js"></script>
+</body>
+</html>
