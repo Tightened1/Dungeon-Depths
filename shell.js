@@ -197,7 +197,7 @@ canvas.addEventListener('mousemove',e=>{
 // Esc (or clicking again) releases. Turning is free — it costs no turn.
 let mouseLookSens=0.00175;
 canvas.addEventListener('click',()=>{
-  if(fpMode&&!gameOver&&!invOpen&&!merchOpen&&!treeOpen&&!relicOpen){
+  if(fpMode&&!gameOver&&!classChooser&&!specChooser&&!invOpen&&!merchOpen&&!treeOpen&&!relicOpen){
     if(document.pointerLockElement!==canvas){canvas.requestPointerLock&&canvas.requestPointerLock();}
   }
 });
@@ -569,7 +569,7 @@ document.addEventListener('keydown',e=>{
   if(relicOpen)return;
   if(gameOver){
     if(typeof lbHandleDeathKey==='function'&&lbHandleDeathKey(e))return;
-    if(e.key==='r'||e.key==='R'){if(typeof lbReset==='function')lbReset();classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
+    if(e.key==='r'||e.key==='R'){if(typeof lbReset==='function')lbReset();gameOver=false;hitFlash=0;classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
   // Toggle first-person / top-down
   if(e.key==='f'||e.key==='F'){fpMode=!fpMode;if(fpMode&&player.angle===undefined)player.angle=faceToAngle(player.facing||1);if(!fpMode)maybeReleasePointerLock();addLog(fpMode?'First-person — mouse-look or ←/→ to turn, WASD to move/strafe, F to exit':'Top-down view',8);fov();updateUI();drawAll();return}
   if(e.key==='1')useAbility(0);if(e.key==='2')useAbility(1);if(e.key==='3')useAbility(2);if(e.key==='4')useAbility(3);
