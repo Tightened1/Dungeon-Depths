@@ -43,6 +43,11 @@ Players may need a hard refresh (Ctrl+Shift+R) to see the newest version.
 The scripts share one global scope and must load in the order listed in
 `index.html` — don't reorder the `<script>` tags.
 
+## Leaderboard (optional)
+
+A free global "Hall of the Fallen" top-10 can be enabled in ~10 minutes —
+see `SETUP_LEADERBOARD.md`. Until configured, the feature is fully dormant.
+
 ## Art credits
 
 Monster, hero, tile, and item sprites are from **"16x16 DungeonTileset II" by 0x72**

@@ -146,6 +146,9 @@ function drawClassChooser(){
   ctx.fillStyle=`rgba(150,120,70,${fp2})`;ctx.font=`10px "Share Tech Mono"`;ctx.textAlign='center';
   ctx.fillText('Click a card or press [1]–['+CLASSES.length+'] to select',cw/2,ch-8);
 
+  // Hall of the Fallen — global top 10 (only when a leaderboard is configured)
+  if(typeof drawLbTitlePanel==='function')drawLbTitlePanel(cw,ch);
+
   // Continue-run banner (if a saved run exists)
   let sp=savePeek();
   if(sp&&sp.player){
@@ -543,6 +546,9 @@ window.buyItem=function(i){
 
 // ══ INPUT ══
 document.addEventListener('keydown',e=>{
+  // Death-screen name entry captures keys before ANY other shortcut,
+  // so typing a name can never open menus or restart the run.
+  if(gameOver&&typeof lbHandleDeathKey==='function'&&lbHandleDeathKey(e)){e.preventDefault();return}
   if(classChooser){
     if((e.key==='c'||e.key==='C')&&hasSave()){if(loadGame())return;}
     let n=parseInt(e.key)-1;
@@ -561,7 +567,9 @@ document.addEventListener('keydown',e=>{
   if(merchOpen){if(e.key==='Escape')closeMerch();return}
   if(treeOpen){if(e.key==='Escape')closeTree();return}
   if(relicOpen)return;
-  if(gameOver){if(e.key==='r'||e.key==='R'){classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
+  if(gameOver){
+    if(typeof lbHandleDeathKey==='function'&&lbHandleDeathKey(e))return;
+    if(e.key==='r'||e.key==='R'){if(typeof lbReset==='function')lbReset();classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
   // Toggle first-person / top-down
   if(e.key==='f'||e.key==='F'){fpMode=!fpMode;if(fpMode&&player.angle===undefined)player.angle=faceToAngle(player.facing||1);if(!fpMode)maybeReleasePointerLock();addLog(fpMode?'First-person — mouse-look or ←/→ to turn, WASD to move/strafe, F to exit':'Top-down view',8);fov();updateUI();drawAll();return}
   if(e.key==='1')useAbility(0);if(e.key==='2')useAbility(1);if(e.key==='3')useAbility(2);if(e.key==='4')useAbility(3);

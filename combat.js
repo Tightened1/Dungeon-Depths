@@ -788,7 +788,7 @@ function doTurn(){
       addLog('MARTYR! Death explosion! Revived at 1HP!',2);
     } else{
       if(player.warTrophy)player.atk=Math.max(1,player.atk-5);
-      gameOver=true;addLog('YOU DIED...',2);clearSave()}
+      gameOver=true;addLog('YOU DIED...',2);clearSave();if(typeof lbOnDeath==='function')lbOnDeath()}
   }
   fov();updateUI();drawAll();updateAnims();
   saveGame();

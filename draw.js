@@ -1058,10 +1058,15 @@ function drawDead(){
     ry+=18;
   });
 
-  // Pulsing prompt
-  ctx.textAlign='center';
-  let pp=0.5+Math.sin(animT*4)*0.4;
-  ctx.fillStyle=`rgba(200,160,90,${pp})`;ctx.font='12px "Share Tech Mono"';
-  ctx.fillText('Press  R  to descend once more...',cx,by+cardH-16);
+  // Leaderboard name entry (drawn under the card when configured)
+  if(typeof drawLbDeathUI==='function')drawLbDeathUI(W,H,bx,by,cardW,cardH);
+  // Pulsing prompt (hidden while typing a name)
+  let _lbTyping=(typeof lbSubmitState!=='undefined'&&(lbSubmitState==='naming'||lbSubmitState==='sending'));
+  if(!_lbTyping){
+    ctx.textAlign='center';
+    let pp=0.5+Math.sin(animT*4)*0.4;
+    ctx.fillStyle=`rgba(200,160,90,${pp})`;ctx.font='12px "Share Tech Mono"';
+    ctx.fillText('Press  R  to descend once more...',cx,by+cardH-16);
+  }
 }
 
