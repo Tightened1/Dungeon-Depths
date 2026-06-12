@@ -111,7 +111,7 @@ const CLASSES=[
   {name:'Rogue',hp:24,atk:10,def:3,color:'#7ae870',sym:'@',desc:'Fast & deadly. High burst damage.',
    baseAbils:[{name:'Backstab',desc:'3x dmg on adjacent enemy',key:'1',cd:0,max:4,range:1,aoe:false,isSpell:false},{name:'Shadowstep',desc:'Teleport in FOV',key:'2',cd:0,max:6,range:7,aoe:false,isSpell:false}],
    lvl7Abil:{name:'Poison Strike',desc:'Dmg + 3 poison/turn',key:'3',cd:0,max:5,range:1,aoe:false,isSpell:false},
-   lvl15Abil:{name:'Death Mark',desc:'Next hit = instant kill',key:'4',cd:0,max:10,range:1,aoe:false,isSpell:false},
+   lvl15Abil:{name:'Death Mark',desc:'Next hit slays (bosses: massive dmg)',key:'4',cd:0,max:10,range:1,aoe:false,isSpell:false},
    paths:[
     {name:'Assassin',color:'#7ae870',desc:'Stealth kills and elimination',nodes:[
       {name:'Shadow Walk',desc:'Active: Move unseen 3 turns CD8',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Shadow Walk',desc:'Move unseen 3 turns',cd:0,max:8,range:0,aoe:false,isSpell:false}},

@@ -1,6 +1,18 @@
 // ══ COMBAT ══
 // All damage scales with level: +4% per level, so Lv10=+40%, Lv20=+80% etc.
 // This keeps early abilities balanced and makes progression feel meaningful.
+// ── BOSS BULWARK ──
+// No single hit may remove more than 35% of a boss's max HP. Burst builds
+// (Legendary Edge, Death Mark, stealth Backstab, Heavenly Bolt stacks) stay
+// devastating against everything else, but can never delete a boss outright.
+function bossCap(m,dmg){
+  if(m&&m.isBoss&&dmg>m.mhp*0.35){
+    addLog('The '+m.name+' endures the blow!',7);
+    return Math.ceil(m.mhp*0.35);
+  }
+  return dmg;
+}
+
 function lvlScale(){
   let base=1+(player.level-1)*0.025;
   let pts=Object.values(player.treeNodes||{}).reduce((s,v)=>s+v,0);
@@ -420,11 +432,12 @@ function atkMon(m){
     dmg=Math.max(1,Math.floor(dmg*0.15));
     addLog('Shield absorbs the blow! ('+m.shieldHits+' left)',8);
   }
+  dmg=bossCap(m,dmg);
   m.hp-=dmg;
   spawnP(m.x,m.y,m.isBoss?'#ffaa33':'#c8e85a',m.isBoss?'boss':'hit');
   spawnAnim('slash',player.x,player.y,m.x,m.y,'#c8e85a');
   addLog('Hit '+m.name+' -'+dmg+' ('+Math.max(0,m.hp)+'/'+m.mhp+')',m.isBoss?8:1);
-  if(player.doubleStrike&&Math.random()*100<player.doubleStrike){let d2=calcDmg(atk,m.def);m.hp-=d2;addLog('Double Strike! -'+d2,1)}
+  if(player.doubleStrike&&Math.random()*100<player.doubleStrike){let d2=bossCap(m,calcDmg(atk,m.def));m.hp-=d2;addLog('Double Strike! -'+d2,1)}
   if(player.infectChance)m.poison=(m.poison||0)+player.infectChance;
   // Relic: cursed blade — hurt self too
   if(player.cursedBlade){player.hp=Math.max(1,player.hp-2);addLog('Cursed Blade bites! -2 HP',2)}
@@ -514,7 +527,7 @@ function useAbility(idx){
     let best=null,bestD=999;monsters.forEach(m=>{let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=ab.range&&m.hp>0&&d<bestD){best=m;bestD=d}});
     if(!best){addLog('No target in range!',2);return}
     spawnAnim('lightning',player.x,player.y,best.x,best.y,'#ffe050');
-    let d=calcDmg(atk*(ab.name==='Heavenly Bolt'?4:2.5)*adm+(player.staticBonus||0),best.def);best.hp-=d;
+    let d=bossCap(best,calcDmg(atk*(ab.name==='Heavenly Bolt'?4:2.5)*adm+(player.staticBonus||0),best.def));best.hp-=d;
     addLog(ab.name+': -'+d+'!',7);if(best.hp<=0)killMon(best);did=true;
   }
   else if(ab.name==='Meteor'){
@@ -554,7 +567,7 @@ function useAbility(idx){
     let mn=monsters.find(m=>Math.abs(m.x-player.x)+Math.abs(m.y-player.y)<=1&&m.hp>0);
     if(!mn){addLog('No adjacent target!',2);return}
     let sm=player.stealthed>0?(1+(player.silentStep||0)):1;
-    let d=calcDmg(atk*3*adm*sm,mn.def);mn.hp-=d;
+    let d=bossCap(mn,calcDmg(atk*3*adm*sm,mn.def));mn.hp-=d;
     spawnAnim('shadow',player.x,player.y,mn.x,mn.y,'#7ae870');addLog('BACKSTAB -'+d+'!',1);if(mn.hp<=0)killMon(mn);did=true;
   }
   else if(ab.name==='Shadowstep'){
@@ -572,7 +585,7 @@ function useAbility(idx){
     let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){m.poison=(m.poison||0)+4+(player.poisonBonus||0);h++}});
     spawnAnim('poison',player.x,player.y,player.x,player.y,'#44cc44');addLog('Poison cloud: '+h+' poisoned!',9);did=true;
   }
-  else if(ab.name==='Death Mark'){player.deathMark=true;addLog('Death Mark: next hit=instant kill!',5);did=true;}
+  else if(ab.name==='Death Mark'){player.deathMark=true;addLog('Death Mark: next hit slays! (bosses endure, taking massive damage)',5);did=true;}
   else if(ab.name==='Shadow Walk'){player.stealthed=3;player.ghost=3;addLog('Shadow Walk: unseen 3 turns!',5);did=true;}
   else if(ab.name==='Ghost Form'){player.ghost=2;player.shielded=2;addLog('Ghost Form: untargetable!',5);did=true;}
   else if(ab.name==='Disguise'){
