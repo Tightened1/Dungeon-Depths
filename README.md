@@ -43,6 +43,15 @@ Players may need a hard refresh (Ctrl+Shift+R) to see the newest version.
 The scripts share one global scope and must load in the order listed in
 `index.html` — don't reorder the `<script>` tags.
 
+## Art credits
+
+Monster, hero, tile, and item sprites are from **"16x16 DungeonTileset II" by 0x72**
+(https://0x72.itch.io/dungeontileset-ii), released under CC0 1.0 (public domain).
+Credit isn't required by the license, but the pack is wonderful — consider
+supporting the artist. Boss sprites and effects are original to this game.
+The sheet ships as `tileset.png`; if it's missing the game falls back to the
+original code-drawn sprites automatically.
+
 ## Notes
 
 - Saves live in the player's browser (localStorage): per-browser, per-device.

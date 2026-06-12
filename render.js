@@ -6,6 +6,44 @@ const TC={wall:{v:'#1c1626',e:'#0f0d14'},floor:{v:'#231d12',e:'#14100a'}};
 
 const TW=18,TH=18; // Larger tiles for better sprites
 
+// ══ 0x72 DUNGEON TILESET II (CC0) — real pixel-art spritesheet ══
+// Loaded async; every draw site falls back to the original code-drawn
+// sprites until it's ready (or if tileset.png is missing).
+const SHEET=new Image();let sheetReady=false;
+SHEET.onload=()=>{sheetReady=true};
+SHEET.onerror=()=>{sheetReady=false};
+SHEET.src='tileset.png';
+const SPR={"column":[0,0,16,48,1],"big_zombie":[16,0,32,36,4],"ogre":[144,0,32,36,4],"big_demon":[272,0,32,36,4],"weapon_red_magic_staff":[400,0,8,30,1],"knight_m":[408,0,16,28,4],"knight_f":[0,48,16,28,4],"elf_m":[64,48,16,28,4],"wizzard_m":[128,48,16,28,4],"wizzard_f":[192,48,16,28,4],"dwarf_m":[256,48,16,28,4],"knight_m_hit":[320,48,16,28,1],"knight_f_hit":[336,48,16,28,1],"elf_m_hit":[352,48,16,28,1],"wizzard_m_hit":[368,48,16,28,1],"wizzard_f_hit":[384,48,16,28,1],"dwarf_m_hit":[400,48,16,28,1],"crate":[416,48,16,24,1],"weapon_hammer":[432,48,10,24,1],"slug":[442,48,16,23,4],"masked_orc":[0,76,16,23,4],"orc_warrior":[64,76,16,23,4],"orc_shaman":[128,76,16,23,4],"necromancer":[192,76,16,23,4],"wogol":[256,76,16,23,4],"chort":[320,76,16,23,4],"doc":[384,76,16,23,4],"pumpkin_dude":[448,76,16,23,4],"weapon_golden_sword":[0,99,10,22,1],"weapon_regular_sword":[10,99,10,21,1],"floor_1":[20,99,16,16,1],"floor_2":[36,99,16,16,1],"floor_3":[52,99,16,16,1],"floor_4":[68,99,16,16,1],"floor_5":[84,99,16,16,1],"floor_6":[100,99,16,16,1],"floor_7":[116,99,16,16,1],"floor_8":[132,99,16,16,1],"wall_mid":[148,99,16,16,1],"wall_top_mid":[164,99,16,16,1],"wall_hole_1":[180,99,16,16,1],"wall_hole_2":[196,99,16,16,1],"wall_goo":[212,99,16,16,1],"wall_banner_red":[228,99,16,16,1],"wall_banner_blue":[244,99,16,16,1],"wall_banner_green":[260,99,16,16,1],"wall_banner_yellow":[276,99,16,16,1],"floor_stairs":[292,99,16,16,1],"floor_ladder":[308,99,16,16,1],"floor_spikes":[324,99,16,16,4],"flask_red":[388,99,16,16,1],"flask_blue":[404,99,16,16,1],"flask_green":[420,99,16,16,1],"flask_yellow":[436,99,16,16,1],"flask_big_red":[452,99,16,16,1],"flask_big_blue":[468,99,16,16,1],"skull":[484,99,16,16,1],"tiny_slug":[0,121,16,16,4],"goblin":[64,121,16,16,4],"imp":[128,121,16,16,4],"tiny_zombie":[192,121,16,16,4],"skelet":[256,121,16,16,4],"muddy":[320,121,16,16,4],"swampy":[384,121,16,16,4],"ice_zombie":[448,121,16,16,4],"angel":[0,137,16,16,4],"coin":[64,137,6,7,4]};
+// game monster sym -> sheet sprite
+const MON_SHEET={r:'tiny_slug',g:'goblin',O:'orc_warrior',s:'skelet',V:'doc',T:'ogre',W:'chort',L:'necromancer','&':'big_demon',D:'wogol'};
+// player class -> hero sprite
+const HERO_SHEET={Warrior:'knight_m',Paladin:'knight_f',Rogue:'elf_m',Mage:'wizzard_m',Cleric:'dwarf_m',Necromancer:'wizzard_f'};
+// Blit a sheet sprite anchored at bottom-centre (destX = centre, destYB = feet line).
+function drawSheet(name,destX,destYB,destW,opts={}){
+  if(!sheetReady)return false;
+  let s=SPR[name];if(!s)return false;
+  let sx=s[0],sy=s[1],w=s[2],h=s[3],n=s[4]||1;
+  let f=opts.frame!==undefined?opts.frame:((Math.floor(animT*5)+(opts.phase||0))%n);
+  let dw=destW,dh=destW*(h/w);
+  let dx=destX-dw/2,dy=destYB-dh;
+  ctx.imageSmoothingEnabled=false;
+  if(opts.flip){
+    ctx.save();ctx.translate(dx+dw/2,0);ctx.scale(-1,1);ctx.translate(-(dx+dw/2),0);
+    ctx.drawImage(SHEET,sx+f*w,sy,w,h,dx,dy,dw,dh);ctx.restore();
+  } else ctx.drawImage(SHEET,sx+f*w,sy,w,h,dx,dy,dw,dh);
+  return true;
+}
+// Blit a 16x16 sheet tile stretched over a full TWxTH cell.
+function drawSheetTile(name,x,y,frame){
+  if(!sheetReady)return false;
+  let s=SPR[name];if(!s)return false;
+  let f=frame!==undefined?frame:0;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(SHEET,s[0]+f*s[2],s[1],s[2],s[3],x,y,TW,TH);
+  return true;
+}
+function tileHash(x,y){return (((x*73856093)^(y*19349663))>>>0)}
+
 // ── SPRITE DRAWING HELPERS ──
 function px(x,y,c){ctx.fillStyle=c;ctx.fillRect(x,y,1,1)}
 function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h)}
@@ -29,6 +67,18 @@ function thash(x,y){let n=(x*73856093)^(y*19349663);n=(n^(n>>>13))>>>0;return(n%
 
 // Wall sprite — layered stone brick with depth, cracks & moss
 function spriteWall(x,y,lit){
+  if(sheetReady){
+    let h=tileHash(x/TW|0,y/TH|0), r=h%97;
+    let tier=Math.ceil(floor/5);
+    let name='wall_mid';
+    if(r<3)name=['wall_banner_blue','wall_banner_green','wall_banner_red','wall_banner_blue','wall_banner_yellow'][Math.min(4,tier-1)]||'wall_banner_red';
+    else if(r<6)name=(h>>8)%2?'wall_hole_1':'wall_hole_2';
+    else if(tier===2&&r<14)name='wall_goo';
+    if(drawSheetTile(name,x,y)){
+      if(!lit){ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(x,y,TW,TH)}
+      return;
+    }
+  }
   let b=lit?'#241d30':'#130e1a';
   let m=lit?'#2f2540':'#1a1224';
   let l=lit?'#473a5e':'#271c38';
@@ -56,6 +106,15 @@ function spriteWall(x,y,lit){
 
 // Floor sprite — flagstones with grout, grime and faint sheen
 function spriteFloor(x,y,lit){
+  if(sheetReady){
+    let h=tileHash(x/TW|0,y/TH|0), r=h%100;
+    let name='floor_1';
+    if(r>=70)name='floor_'+(2+((h>>7)%7));
+    if(drawSheetTile(name,x,y)){
+      if(!lit){ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(x,y,TW,TH)}
+      return;
+    }
+  }
   let b=lit?'#1c1710':'#100d08';
   let g=lit?'#272016':'#16120c';
   let d=lit?'#15110a':'#0c0906';
@@ -79,6 +138,14 @@ function spriteFloor(x,y,lit){
 
 // Staircase sprite — descending arcane stairwell with pulsing glow
 function spriteStair(x,y){
+  if(sheetReady&&SPR.floor_stairs){
+    drawSheetTile('floor_stairs',x,y);
+    let pulse=0.10+Math.sin(animT*3)*0.08;
+    let g2=ctx.createRadialGradient(x+TW/2,y+TH/2,1,x+TW/2,y+TH/2,TW*0.8);
+    g2.addColorStop(0,`rgba(170,110,255,${pulse+0.12})`);g2.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g2;ctx.fillRect(x-2,y-2,TW+4,TH+4);
+    return;
+  }
   // dark recessed pit
   rect(x,y,TW,TH,'#0c0620');
   rect(x+1,y+1,TW-2,TH-2,'#160a2e');
@@ -497,6 +564,22 @@ function drawItemSprite(ix,iy,it){
     let pulse=0.15+Math.sin(animT*3+ix+iy)*0.1;
     ctx.fillStyle=gc.replace('#','rgba(').replace(/(..)(..)(..)$/,(_,r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},${pulse})`);
     ctx.fillRect(px2-2,py2-2,TW+4,TH+4);
+  }
+  // Sheet sprites for the common pickups (CC0 0x72 pack)
+  if(sheetReady){
+    let bob=Math.sin(animT*3+ix*1.7+iy)*1.5;
+    let nm=null;
+    if(it.type==='gold')nm='coin';
+    else if(it.type==='potion')nm=(/mana|blue/i.test(it.name||'')?'flask_blue':/elixir|yellow/i.test(it.name||'')?'flask_big_red':'flask_red');
+    else if(it.type==='weapon')nm=(it.rare>=3?'weapon_golden_sword':/staff|wand/i.test(it.name||'')?'weapon_red_magic_staff':/hammer|mace/i.test(it.name||'')?'weapon_hammer':'weapon_regular_sword');
+    if(nm&&SPR[nm]){
+      let s=SPR[nm];
+      let dw=it.type==='gold'?TW*0.55:TW*(s[2]/16)*0.85;
+      // soft ground shadow
+      ctx.fillStyle='rgba(0,0,0,0.35)';
+      ctx.beginPath();ctx.ellipse(px2+TW/2,py2+TH-2,TW*0.28,TH*0.10,0,0,Math.PI*2);ctx.fill();
+      if(drawSheet(nm,px2+TW/2,py2+TH-2+bob,dw,{phase:(ix+iy)%4}))return;
+    }
   }
   // Item background gem
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(px2+2,py2+2,TW-4,TH-4);

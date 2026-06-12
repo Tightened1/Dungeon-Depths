@@ -419,6 +419,16 @@ function drawFPSprites(px,py,ang,projPlane,W,H,COLW,numCols){
 let _fpSpriteCache={};
 function spriteToCanvas(key,m){
   if(_fpSpriteCache[key])return _fpSpriteCache[key];
+  // 0x72 sheet crop for regular monsters (matches the top-down art)
+  if(sheetReady&&key!=='merchant'&&!key.startsWith('B:')){
+    let nm=MON_SHEET[key];
+    if(nm&&SPR[nm]){
+      let s=SPR[nm];
+      let cv=document.createElement('canvas');cv.width=s[2];cv.height=s[3];
+      cv.getContext('2d').drawImage(SHEET,s[0],s[1],s[2],s[3],0,0,s[2],s[3]);
+      _fpSpriteCache[key]=cv;return cv;
+    }
+  }
   let map,pal;
   if(key==='merchant'){
     let cv=document.createElement('canvas');cv.width=16;cv.height=18;
@@ -767,6 +777,7 @@ function drawHazard(px,py,hz,light){
       ctx.fillRect(px+TW/2-1,py+4,2,2);ctx.fillRect(px+5,py+TH-6,2,2);ctx.fillRect(px+TW-7,py+TH-6,2,2);
     } else {
       // sprung: visible metal spikes jutting up
+      if(sheetReady&&SPR.floor_spikes){drawSheetTile('floor_spikes',px,py,3);return;}
       ctx.fillStyle='#1a1410';ctx.fillRect(px+2,py+2,TW-4,TH-4);
       ctx.fillStyle='#9aa0a8';
       for(let i=0;i<4;i++){
@@ -896,7 +907,18 @@ function drawMons(){
       if(m.poison>0){ctx.fillStyle='rgba(50,200,50,0.25)';ctx.fillRect(mx,my,TW,TH)}
       // Minion border
       if(m.isMinion){ctx.strokeStyle='rgba(80,220,100,0.6)';ctx.lineWidth=1.5;ctx.strokeRect(mx,my,TW,TH)}
-      // Sprite
+      // Sprite — prefer the 0x72 sheet, fall back to code-drawn pixel art
+      let _sheetNm=MON_SHEET[m.sym], _drew=false;
+      if(_sheetNm&&sheetReady&&SPR[_sheetNm]){
+        let s=SPR[_sheetNm];
+        let dw=TW*(s[2]/16);
+        let dh=dw*(s[3]/s[2]);
+        let flip=m.x>player.x; // sprites face right; flip to face the hero
+        _drew=drawSheet(_sheetNm,mx+TW/2,my+TH-1,dw,{flip,phase:Math.floor((m.id||0)*4)});
+        if(_drew&&m.isMinion){ctx.fillStyle='rgba(120,255,140,0.30)';ctx.fillRect(mx+TW/2-dw/2,my+TH-1-dh,dw,dh)}
+        if(_drew&&m.stun>0){ctx.fillStyle='rgba(110,110,220,0.35)';ctx.fillRect(mx+TW/2-dw/2,my+TH-1-dh,dw,dh)}
+      }
+      if(!_drew){
       let sp=MONSTER_SPRITES[m.sym];
       if(sp){
         let pal={...sp.pal};
@@ -908,6 +930,7 @@ function drawMons(){
         ctx.fillStyle=m.isMinion?'#aaffaa':m.col;
         ctx.font='bold 13px "Share Tech Mono"';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillText(m.sym,mx+TW/2,my+TH/2);
+      }
       }
       // HP bar
       ctx.fillStyle='#1a0a0a';ctx.fillRect(mx+1,my+TH-3,TW-2,2);
@@ -953,9 +976,16 @@ function drawPlayer(){
   // Ground shadow
   ctx.fillStyle='rgba(0,0,0,0.35)';
   ctx.beginPath();ctx.ellipse(px2+TW/2,py2+TH-2,TW*0.40,TH*0.16,0,0,Math.PI*2);ctx.fill();
-  // Draw player sprite
-  let pal=PLAYER_PALETTES[player.cls]||PLAYER_PALETTES.Warrior;
-  drawSprite(px2,py2,PLAYER_SPRITE,pal);
+  // Draw player sprite — 0x72 hero if the sheet is ready
+  let _hero=HERO_SHEET[player.cls], _drewP=false;
+  if(_hero&&sheetReady){
+    let nm=(hitFlash>0.25&&SPR[_hero+'_hit'])?_hero+'_hit':_hero;
+    _drewP=drawSheet(nm,px2+TW/2,py2+TH-1,TW,{flip:player.facing===3});
+  }
+  if(!_drewP){
+    let pal=PLAYER_PALETTES[player.cls]||PLAYER_PALETTES.Warrior;
+    drawSprite(px2,py2,PLAYER_SPRITE,pal);
+  }
 }
 
 function drawParts(){
