@@ -2,8 +2,8 @@
 // SETUP (see SETUP_LEADERBOARD.md): paste your two values below.
 // While these are empty the leaderboard is fully disabled and the game
 // behaves exactly as before — safe to ship either way.
-let LB_URL='';   // e.g. 'https://abcdefghijkl.supabase.co'
-let LB_KEY='';   // your 'anon public' API key (it is designed to be public)
+let LB_URL='https://cakaairkyzomzskszvec.supabase.co';   // e.g. 'https://abcdefghijkl.supabase.co'
+let LB_KEY='sb_publishable_i7ueCWk57_HfDFTY0N5lww_a0vORYZc';   // your 'anon public' API key (it is designed to be public)
 
 function LB_ENABLED(){return !!(LB_URL&&LB_KEY)}
 function lbHeaders(){return {apikey:LB_KEY,Authorization:'Bearer '+LB_KEY,'Content-Type':'application/json'}}
