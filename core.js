@@ -144,8 +144,8 @@ const CLASSES=[
       {name:'Lava Flow',desc:'Active: 4-tile lava line (2dmg/turn) CD7',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Lava Flow',desc:'Lava line 4 tiles',cd:0,max:7,range:4,aoe:true,isSpell:true}},
     ]},
     {name:'Ice Mastery',color:'#5aaae8',desc:'Freeze and shatter enemies',nodes:[
-      {name:'Frost Bolt',desc:'Active: 2x dmg + slow enemy CD3',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Frost Bolt',desc:'2x dmg + freeze',cd:0,max:3,range:5,aoe:false,isSpell:true}},
-      {name:'Deep Freeze',desc:'+50% dmg vs frozen enemies per rank',ranks:2,costPer:2,effect:(p,r)=>{p.deepFreeze=(p.deepFreeze||0)+1},label:'+50% vs frozen'},
+      {name:'Frost Bolt',desc:'Active: 2.5x dmg + slow enemy CD3',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Frost Bolt',desc:'2.5x dmg + freeze',cd:0,max:3,range:5,aoe:false,isSpell:true}},
+      {name:'Deep Freeze',desc:'+75% dmg vs frozen enemies per rank',ranks:2,costPer:2,effect:(p,r)=>{p.deepFreeze=(p.deepFreeze||0)+1},label:'+75% vs frozen'},
       {name:'Blizzard',desc:'Active: 5x5 AoE cold storm CD9',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Blizzard',desc:'5x5 AoE cold',cd:0,max:9,range:4,aoe:true,isSpell:true}},
       {name:'Ice Wall',desc:'Active: Block 3 tiles 4 turns CD6',ranks:1,costPer:2,isAbil:true,abilDef:{name:'Ice Wall',desc:'Block 3 tiles 4 turns',cd:0,max:6,range:3,aoe:false,isSpell:false}},
     ]},
@@ -192,9 +192,9 @@ const CLASSES=[
       {name:'Divine Vengeance',desc:'Store incoming dmg, release on next hit',ranks:1,costPer:3,effect:(p,r)=>{p.vengeance=true},label:'Store+release damage'},
     ]},
     {name:'Protector',color:'#aae0ff',desc:'Shield and absorption',nodes:[
-      {name:'Sacred Vow',desc:'Active: Absorb 30 damage shield CD8',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Sacred Vow',desc:'30 dmg absorb shield',cd:0,max:8,range:0,aoe:false,isSpell:false}},
-      {name:'Holy Barrier',desc:'+5 DEF below 50% HP per rank — passive',ranks:2,costPer:1,effect:(p,r)=>{p.barrierBonus=(p.barrierBonus||0)+5},label:'+5 DEF at low HP'},
-      {name:'Aura of Protection',desc:'-2 from all incoming damage per rank',ranks:3,costPer:2,effect:(p,r)=>{p.aura=(p.aura||0)+2},label:'-2 all damage'},
+      {name:'Sacred Vow',desc:'Active: Absorb 45 damage shield CD8',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Sacred Vow',desc:'45 dmg absorb shield',cd:0,max:8,range:0,aoe:false,isSpell:false}},
+      {name:'Holy Barrier',desc:'+7 DEF below 50% HP per rank — passive',ranks:2,costPer:1,effect:(p,r)=>{p.barrierBonus=(p.barrierBonus||0)+7},label:'+7 DEF at low HP'},
+      {name:'Aura of Protection',desc:'-3 from all incoming damage per rank',ranks:3,costPer:2,effect:(p,r)=>{p.aura=(p.aura||0)+3},label:'-3 all damage'},
       {name:'Sanctuary',desc:'Active: All dmg reduced to 1 for 2 turns CD12',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Sanctuary',desc:'All dmg = 1 for 2 turns',cd:0,max:12,range:0,aoe:false,isSpell:false}},
     ]},
     {name:'Zealot',color:'#ff9940',desc:'Self-sacrifice for raw power',nodes:[
@@ -216,8 +216,8 @@ const CLASSES=[
       {name:'Raise Dragon',desc:'Active: Raise a powerful dragon minion. No HP cost. CD15',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Raise Dragon',desc:'Raise a dragon ally (no HP cost)',cd:0,max:15,range:0,aoe:false,isSpell:false}},
     ]},
     {name:'Soul Harvester',color:'#cc88ff',desc:'Grow stronger with every kill',nodes:[
-      {name:'Soul Siphon',desc:'Gain +1 ATK per kill stacking up to +20',ranks:1,costPer:2,effect:(p,r)=>{p.soulSiphon=true},label:'Stack ATK on kills'},
-      {name:'Harvest',desc:'+8 HP per kill per rank',ranks:2,costPer:2,effect:(p,r)=>{p.soulHarvest=(p.soulHarvest||0)+8},label:'+8 HP on kill'},
+      {name:'Soul Siphon',desc:'Gain +2 ATK per kill stacking up to +30',ranks:1,costPer:2,effect:(p,r)=>{p.soulSiphon=true},label:'Stack ATK on kills'},
+      {name:'Harvest',desc:'+12 HP per kill per rank',ranks:2,costPer:2,effect:(p,r)=>{p.soulHarvest=(p.soulHarvest||0)+12},label:'+12 HP on kill'},
       {name:'Soul Jar',desc:'5 soul charges = full heal',ranks:1,costPer:2,effect:(p,r)=>{p.soulJar=true},label:'5 kills = full heal'},
       {name:'Soul Storm',desc:'Active: Release souls as AoE CD6',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Soul Storm',desc:'Release souls as AoE',cd:0,max:6,range:4,aoe:true,isSpell:true}},
     ]},

@@ -384,7 +384,7 @@ function killMon(m){
     }
     if(player.epidemic){monsters.filter(o=>Math.abs(o.x-m.x)+Math.abs(o.y-m.y)<=1&&o.hp>0).forEach(o=>o.poison=(o.poison||0)+3)}
     if(player.deathSurge){monsters.forEach(o=>{if(Math.abs(o.x-m.x)+Math.abs(o.y-m.y)<=2&&o.hp>0)o.hp-=6});spawnAnim('explosion',m.x,m.y,m.x,m.y,'#55cc88')}
-    if(player.soulSiphon&&(player.soulStack||0)<20)player.soulStack=(player.soulStack||0)+1;
+    if(player.soulSiphon&&(player.soulStack||0)<30)player.soulStack=Math.min(30,(player.soulStack||0)+2);
     if(player.soulJar){player.soulCharges=(player.soulCharges||0)+1;if(player.soulCharges>=5){player.hp=player.mhp;player.soulCharges=0;addLog('Soul Jar: fully healed!',6)}}
     if(player.soulHarvest)player.hp=Math.min(player.mhp,player.hp+player.soulHarvest);
     if(player.plague){monsters.filter(o=>Math.abs(o.x-m.x)+Math.abs(o.y-m.y)<=1&&o.hp>0).forEach(o=>o.poison=(o.poison||0)+3)}
@@ -414,7 +414,7 @@ function atkMon(m){
   if(player.legendaryEdge){mult=5;player.legendaryEdge=false}
   if(player.sacrificeStrike){mult=5;player.hp=Math.max(1,player.hp-20);player.sacrificeStrike=false;addLog('Sacrifice Strike! (-20HP)',2)}
   if(player.vengeanceDmg){atk+=player.vengeanceDmg;player.vengeanceDmg=0}
-  if(m.stun>0&&player.deepFreeze)mult*=1+0.5*player.deepFreeze;
+  if(m.stun>0&&player.deepFreeze)mult*=1+0.75*player.deepFreeze;
   if(m.isBoss){atk+=(player.smiteBonus||0);let has=Object.values(player.eq||{}).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='smiteevil'));if(has)atk+=10}
   if(m.poison>0&&player.venomFangs)mult*=1+0.5*player.venomFangs;
   let manaburn=Object.values(player.eq||{}).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='manaburn'))?4:0;
@@ -513,7 +513,7 @@ function useAbility(idx){
     let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=5&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target!',2);return}
     spawnAnim('ice',player.x,player.y,near.x,near.y,'#5aaae8');
-    let d=calcDmg(atk*2*adm,near.def);near.hp-=d;near.stun=2;addLog('Frost Bolt: '+near.name+' frozen -'+d,4);if(near.hp<=0)killMon(near);did=true;
+    let d=calcDmg(atk*2.5*adm,near.def);near.hp-=d;near.stun=2;addLog('Frost Bolt: '+near.name+' frozen -'+d,4);if(near.hp<=0)killMon(near);did=true;
   }
   else if(ab.name==='Blizzard'){
     let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=calcDmg(atk*1.5*adm,m.def);m.hp-=d;m.stun=3;h++;spawnP(m.x,m.y,'#5aaae8');if(m.hp<=0)killMon(m)}});
@@ -609,7 +609,7 @@ function useAbility(idx){
   }
   else if(ab.name==='Divine Shield'){player.shielded=2;addLog('Divine Shield!',6);did=true;}
   else if(ab.name==='Sanctuary'){player.sanctuary=2;addLog('Sanctuary: dmg=1 for 2 turns!',6);did=true;}
-  else if(ab.name==='Sacred Vow'){player.sacredVow=30;addLog('Sacred Vow: absorb 30 dmg!',6);did=true;}
+  else if(ab.name==='Sacred Vow'){player.sacredVow=45;addLog('Sacred Vow: absorb 45 dmg!',6);did=true;}
   else if(ab.name==='Radiance'){
     let h=0;monsters.forEach(m=>{if(G.vis[m.y]&&G.vis[m.y][m.x]&&m.hp>0){m.stun=Math.max(m.stun||0,3);m.blind=3;h++}});
     addLog('Radiance: '+h+' enemies blinded for 3 turns!',6);did=true;
@@ -795,7 +795,7 @@ function doTurn(){
     }
     else if(player.martyr&&!player._martyrUsed){
       player._martyrUsed=true;player.hp=1;
-      monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=4&&!m.isMinion)m.hp=-999});
+      monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=4&&!m.isMinion){if(m.isBoss){m.hp-=bossCap(m,m.mhp)}else m.hp=-999}});
       monsters=monsters.filter(m=>m.hp>0&&!m._dead);
       spawnAnim('explosion',player.x,player.y,player.x,player.y,'#e8c840');
       addLog('MARTYR! Death explosion! Revived at 1HP!',2);
