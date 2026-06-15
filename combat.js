@@ -12,6 +12,21 @@ function bossCap(m,dmg){
   }
   return dmg;
 }
+// Single choke-point for ability damage: applies the bulwark, then deals it.
+// Use for every direct-damage ability so no spec can bypass the boss cap.
+function hurt(m,dmg){let d=bossCap(m,dmg);m.hp-=d;return d;}
+
+// ── IRON WILL ──
+// "Cannot die while above 15 HP": a hit may reduce you TO the floor but not
+// through it — only while you're currently above it. At/below the floor you
+// are mortal again, so you can still be finished off. (Previously this clamped
+// every hit to leave 1 HP regardless of total, which was unintended immortality.)
+const IRON_WILL_FLOOR=15;
+function ironWillClamp(dmg){
+  if(!player.ironWill)return dmg;
+  if(player.hp<=IRON_WILL_FLOOR)return dmg;            // already at/below floor → mortal
+  return Math.min(dmg, player.hp-IRON_WILL_FLOOR);     // can't be taken below the floor
+}
 
 function lvlScale(){
   let base=1+(player.level-1)*0.025;
@@ -128,7 +143,7 @@ function moveMons(){
       rdmg+=(player.dmgTaken||0);
       if(player.dmgMult)rdmg=Math.floor(rdmg*(player.dmgMult||1));
       if(player.sanctuary>0)rdmg=Math.min(1,rdmg);
-      if(player.ironWill)rdmg=Math.min(rdmg,player.hp-1);
+      rdmg=ironWillClamp(rdmg);
       let rcol=m.drainHp?'#cc44cc':m.raisesDead?'#5a8aaa':'#e84a4a';
       spawnAnim('fireball',m.x,m.y,player.x,player.y,rcol);
       player.hp=Math.max(0,player.hp-rdmg);
@@ -165,7 +180,7 @@ function moveMons(){
       } else if(m.bossAbil==='blood_missile'&&dist<=8){
         bdmg=Math.max(1,Math.floor(m.atk*0.85)-Math.floor(effStat('def')*0.4));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
-        if(player.ironWill)bdmg=Math.min(bdmg,player.hp-1);
+        bdmg=ironWillClamp(bdmg);
         spawnAnim('fireball',m.x,m.y,player.x,player.y,'#cc44cc');
         player.hp=Math.max(0,player.hp-bdmg);
         m.hp=Math.min(m.mhp,m.hp+Math.floor(bdmg/2));
@@ -174,14 +189,14 @@ function moveMons(){
       } else if(m.bossAbil==='shockwave'&&dist<=3){
         bdmg=Math.max(1,Math.floor(m.atk*0.6));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
-        if(player.ironWill)bdmg=Math.min(bdmg,player.hp-1);
+        bdmg=ironWillClamp(bdmg);
         player.hp=Math.max(0,player.hp-bdmg);
         if(bdmg>0)triggerShake(7,8);
         addLog(m.name+': SHOCKWAVE -'+bdmg+'!',7);
       } else if(m.bossAbil==='shadow_nova'&&dist<=5){
         bdmg=Math.max(1,Math.floor(m.atk*0.75)-Math.floor(effStat('def')*0.3));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
-        if(player.ironWill)bdmg=Math.min(bdmg,player.hp-1);
+        bdmg=ironWillClamp(bdmg);
         player.hp=Math.max(0,player.hp-bdmg);
         if(bdmg>0)triggerShake(6,8);
         if(!(player.stunImmune))player.stun=2;
@@ -189,7 +204,7 @@ function moveMons(){
       } else if(m.bossAbil==='void_breath'&&dist<=7){
         bdmg=Math.max(1,Math.floor(m.atk*0.9)-Math.floor(effStat('def')*0.35));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
-        if(player.ironWill)bdmg=Math.min(bdmg,player.hp-1);
+        bdmg=ironWillClamp(bdmg);
         spawnAnim('fireball',m.x,m.y,player.x,player.y,'#ff3333');
         player.hp=Math.max(0,player.hp-bdmg);
         if(bdmg>0)triggerShake(8,10);
@@ -222,7 +237,7 @@ function moveMons(){
       if(player.mirrorActive&&baseDmg>0){player.mirrorActive=false;player.mirrorBroken=true}
       else if(player.mirrorBroken&&baseDmg>0)baseDmg*=2;
       // Relic: iron will — cannot die above 15 HP
-      if(player.ironWill)baseDmg=Math.min(baseDmg,player.hp-1);
+      baseDmg=ironWillClamp(baseDmg);
       if(player.sanctuary>0)baseDmg=Math.min(1,baseDmg);
       if(player.sacredVow>0&&player.sacredVow>=baseDmg){player.sacredVow-=baseDmg;baseDmg=0}
       let dmg=baseDmg;
@@ -369,7 +384,7 @@ function killMon(m){
       spawnP(m.x,m.y,'#ff8a3a','death');
       let ex=Math.max(3,Math.floor(m.atk*0.8));
       if(Math.abs(player.x-m.x)<=1&&Math.abs(player.y-m.y)<=1){
-        let ed=ex; if(player.sanctuary>0)ed=Math.min(1,ed); if(player.ironWill)ed=Math.min(ed,player.hp-1);
+        let ed=ex; if(player.sanctuary>0)ed=Math.min(1,ed); ed=ironWillClamp(ed);
         player.hp=Math.max(0,player.hp-ed);triggerShake(7,9);triggerHitFlash(0.5);
         spawnFloatNum('-'+ed,player.x,player.y,'#ff8a3a',true);
         addLog(m.name+' explodes! -'+ed,2);
@@ -486,7 +501,7 @@ function useAbility(idx){
     let cx=near?near.x:player.x+2,cy=near?near.y:player.y;
     spawnAnim('fireball',player.x,player.y,cx,cy,'#e87a3a');
     let h=0,dbl=Object.values(player.eq||{}).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='fireballdouble'));
-    let doHit=()=>{monsters.forEach(m=>{if(Math.abs(m.x-cx)<=1&&Math.abs(m.y-cy)<=1&&m.hp>0){let d=calcDmg(atk*fdm+(player.combustion||0),m.def);m.hp-=d;h++;spawnP(m.x,m.y,'#e87a3a','death');if(m.hp<=0)killMon(m)}})};
+    let doHit=()=>{monsters.forEach(m=>{if(Math.abs(m.x-cx)<=1&&Math.abs(m.y-cy)<=1&&m.hp>0){let d=hurt(m,calcDmg(atk*fdm+(player.combustion||0),m.def));h++;spawnP(m.x,m.y,'#e87a3a','death');if(m.hp<=0)killMon(m)}})};
     doHit();if(dbl)doHit();
     setTimeout(()=>spawnAnim('explosion',cx,cy,cx,cy,'#e87a3a'),200);
     addLog('FIREBALL rank'+fr+': '+h+' hit!',2);did=true;
@@ -495,7 +510,7 @@ function useAbility(idx){
     let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=(ab.range||2)&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target in range!',2);return}
     spawnAnim('fireball',player.x,player.y,near.x,near.y,'#c85ae8');
-    let d=calcDmg(atk*1.2*adm,near.def);near.hp-=d;addLog('Magic Missile -'+d,1);if(near.hp<=0)killMon(near);did=true;
+    let d=hurt(near,calcDmg(atk*1.2*adm,near.def));addLog('Magic Missile -'+d,1);if(near.hp<=0)killMon(near);did=true;
   }
   else if(ab.name==='Chain Lightning'){
     let targets=[],src={x:player.x,y:player.y};
@@ -505,7 +520,7 @@ function useAbility(idx){
       avail.sort((a,b)=>Math.abs(a.x-src.x)+Math.abs(a.y-src.y)-(Math.abs(b.x-src.x)+Math.abs(b.y-src.y)));
       let t=avail[0];targets.push(t);
       spawnAnim('lightning',src.x,src.y,t.x,t.y,'#e8e850');
-      let d=calcDmg(atk*1.5*adm+(player.staticBonus||0),t.def);t.hp-=d;if(t.hp<=0)killMon(t);src=t;
+      let d=hurt(t,calcDmg(atk*1.5*adm+(player.staticBonus||0),t.def));if(t.hp<=0)killMon(t);src=t;
     }
     addLog('Chain Lightning: '+targets.length+' struck!',3);did=true;
   }
@@ -513,14 +528,14 @@ function useAbility(idx){
     let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=5&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target!',2);return}
     spawnAnim('ice',player.x,player.y,near.x,near.y,'#5aaae8');
-    let d=calcDmg(atk*2.5*adm,near.def);near.hp-=d;near.stun=2;addLog('Frost Bolt: '+near.name+' frozen -'+d,4);if(near.hp<=0)killMon(near);did=true;
+    let d=hurt(near,calcDmg(atk*2.5*adm,near.def));near.stun=2;addLog('Frost Bolt: '+near.name+' frozen -'+d,4);if(near.hp<=0)killMon(near);did=true;
   }
   else if(ab.name==='Blizzard'){
-    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=calcDmg(atk*1.5*adm,m.def);m.hp-=d;m.stun=3;h++;spawnP(m.x,m.y,'#5aaae8');if(m.hp<=0)killMon(m)}});
+    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=hurt(m,calcDmg(atk*1.5*adm,m.def));m.stun=3;h++;spawnP(m.x,m.y,'#5aaae8');if(m.hp<=0)killMon(m)}});
     spawnAnim('explosion',player.x,player.y,player.x,player.y,'#5aaae8');addLog('BLIZZARD: '+h+' frozen!',4);did=true;
   }
   else if(ab.name==='Lightning Storm'){
-    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=3&&Math.abs(m.y-player.y)<=3&&m.hp>0){spawnAnim('lightning',player.x,player.y,m.x,m.y,'#e8e850');let d=calcDmg(atk*2*adm+(player.staticBonus||0),m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}});
+    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=3&&Math.abs(m.y-player.y)<=3&&m.hp>0){spawnAnim('lightning',player.x,player.y,m.x,m.y,'#e8e850');let d=hurt(m,calcDmg(atk*2*adm+(player.staticBonus||0),m.def));h++;if(m.hp<=0)killMon(m)}});
     addLog('LIGHTNING STORM: '+h+' struck!',3);did=true;
   }
   else if(ab.name==='Heavenly Bolt'||ab.name==='Smite'){
@@ -534,7 +549,7 @@ function useAbility(idx){
     let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<nd){nd=d;near=m}}});
     let cx=near?near.x:player.x,cy=near?near.y:player.y-3;
     spawnAnim('explosion',cx,cy,cx,cy,'#e87a3a');let h=0;
-    monsters.forEach(m=>{if(Math.abs(m.x-cx)<=1&&Math.abs(m.y-cy)<=1&&m.hp>0){let d=calcDmg(atk*5*adm,m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}});
+    monsters.forEach(m=>{if(Math.abs(m.x-cx)<=1&&Math.abs(m.y-cy)<=1&&m.hp>0){let d=hurt(m,calcDmg(atk*5*adm,m.def));h++;if(m.hp<=0)killMon(m)}});
     addLog('METEOR: '+h+' obliterated!',2);did=true;
   }
   else if(ab.name==='Ice Wall'){
@@ -549,16 +564,16 @@ function useAbility(idx){
   else if(ab.name==='Shield Bash'){
     let adj=monsters.filter(m=>Math.abs(m.x-player.x)+Math.abs(m.y-player.y)===1&&m.hp>0);
     if(!adj.length){addLog('No adjacent enemy!',2);return}
-    adj.forEach(m=>{let d=calcDmg(atk*1.5,m.def);m.hp-=d;m.stun=2;spawnAnim('slash',player.x,player.y,m.x,m.y,'#5aaae8');addLog('Shield Bash: '+m.name+' stunned!',4);if(m.hp<=0)killMon(m)});did=true;
+    adj.forEach(m=>{let d=hurt(m,calcDmg(atk*1.5,m.def));m.stun=2;spawnAnim('slash',player.x,player.y,m.x,m.y,'#5aaae8');addLog('Shield Bash: '+m.name+' stunned!',4);if(m.hp<=0)killMon(m)});did=true;
   }
   else if(ab.name==='Berserker'){player.berserk=2+(player.eq&&Object.values(player.eq).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='warshout'))?1:0);addLog('BERSERKER RAGE!',2);did=true;}
   else if(ab.name==='War Cry'){player.atkBuff=5;player.atkBuffTurns=3;addLog('WAR CRY! +5 ATK 3 turns!',8);did=true;}
   else if(ab.name==='Battle Cry'){
-    let h=0;for(let i=0;i<=3;i++)for(let dy=-1;dy<=1;dy++){let m=monsters.find(mo=>mo.x===player.x+i&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=calcDmg(atk,m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}}
+    let h=0;for(let i=0;i<=3;i++)for(let dy=-1;dy<=1;dy++){let m=monsters.find(mo=>mo.x===player.x+i&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=hurt(m,calcDmg(atk,m.def));h++;if(m.hp<=0)killMon(m)}}
     addLog('Battle Cry: '+h+' hit!',7);did=true;
   }
   else if(ab.name==='Whirlwind'){
-    let h=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;let m=monsters.find(mo=>mo.x===player.x+dx&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=calcDmg(atk*adm,m.def);m.hp-=d;h++;spawnAnim('slash',player.x,player.y,m.x,m.y,'#e8a05a');if(m.hp<=0)killMon(m)}}
+    let h=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;let m=monsters.find(mo=>mo.x===player.x+dx&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=hurt(m,calcDmg(atk*adm,m.def));h++;spawnAnim('slash',player.x,player.y,m.x,m.y,'#e8a05a');if(m.hp<=0)killMon(m)}}
     addLog('WHIRLWIND: '+h+' enemies!',7);did=true;
   }
   else if(ab.name==='Titan Form'){player.shielded=1;player.hp=Math.min(player.mhp,player.hp+20);addLog('TITAN FORM! +20HP immune!',6);did=true;}
@@ -604,7 +619,7 @@ function useAbility(idx){
     spawnAnim('holy',player.x,player.y,player.x,player.y,'#ffe8aa');addLog('Healed +'+a+' HP',6);did=true;
   }
   else if(ab.name==='Holy Nova'){
-    let h=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;let m=monsters.find(mo=>mo.x===player.x+dx&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=calcDmg(atk*1.5+(player.holyBonus||0),m.def);m.hp-=d;h++;spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe8aa');if(m.hp<=0)killMon(m)}}
+    let h=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;let m=monsters.find(mo=>mo.x===player.x+dx&&mo.y===player.y+dy&&mo.hp>0);if(m){let d=hurt(m,calcDmg(atk*1.5+(player.holyBonus||0),m.def));h++;spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe8aa');if(m.hp<=0)killMon(m)}}
     addLog('HOLY NOVA: '+h+' hit!',6);did=true;
   }
   else if(ab.name==='Divine Shield'){player.shielded=2;addLog('Divine Shield!',6);did=true;}
@@ -618,7 +633,7 @@ function useAbility(idx){
     let best=null,bestD=999;monsters.forEach(m=>{let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=4&&m.hp>0&&d<bestD){best=m;bestD=d}});
     if(!best){addLog('No target!',2);return}
     spawnAnim('holy',player.x,player.y,best.x,best.y,'#ffe8aa');
-    let d=calcDmg(atk*3+(player.holyBonus||0),best.def);best.hp-=d;addLog('Holy Bolt -'+d,6);if(best.hp<=0)killMon(best);did=true;
+    let d=hurt(best,calcDmg(atk*3+(player.holyBonus||0),best.def));addLog('Holy Bolt -'+d,6);if(best.hp<=0)killMon(best);did=true;
   }
   else if(ab.name==='Sacred Ground'){
     player.sacredGround={x:player.x,y:player.y,r:1,turns:4};
@@ -627,26 +642,26 @@ function useAbility(idx){
   else if(ab.name==='Ancient Power'){player.atkBuff=6;player.defBuff=6;player.atkBuffTurns=5;player.defBuffTurns=5;addLog('Ancient Power: +6ATK/DEF 5 turns!',6);did=true;}
   else if(ab.name==='Transcendence'){player.transcendence=1;addLog('Transcendence: cannot die 1 turn!',5);did=true;}
   else if(ab.name==='Holy Wrath'){
-    let h=0;monsters.forEach(m=>{if(G.vis[m.y]&&G.vis[m.y][m.x]&&m.hp>0){spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe050');let d=calcDmg(atk*5*adm,m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}});
+    let h=0;monsters.forEach(m=>{if(G.vis[m.y]&&G.vis[m.y][m.x]&&m.hp>0){spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe050');let d=hurt(m,calcDmg(atk*5*adm,m.def));h++;if(m.hp<=0)killMon(m)}});
     addLog('HOLY WRATH: '+h+' smited!',7);did=true;
   }
   else if(ab.name==='Blessed Strike'){
     let adj=monsters.filter(m=>Math.abs(m.x-player.x)+Math.abs(m.y-player.y)===1&&m.hp>0);
     if(!adj.length){addLog('No adj!',2);return}
-    adj.forEach(m=>{let d=calcDmg(atk+5,m.def);m.hp-=d;spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe8aa');if(m.hp<=0)killMon(m)});addLog('Blessed Strike!',6);did=true;
+    adj.forEach(m=>{let d=hurt(m,calcDmg(atk+5,m.def));spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe8aa');if(m.hp<=0)killMon(m)});addLog('Blessed Strike!',6);did=true;
   }
   else if(ab.name==='Lay on Hands'){player.hp=Math.min(player.mhp,player.hp+20);spawnAnim('holy',player.x,player.y,player.x,player.y,'#ffe8aa');addLog('Lay on Hands: +20HP!',6);did=true;}
   else if(ab.name==='Judgement'){
     let adj=monsters.filter(m=>Math.abs(m.x-player.x)+Math.abs(m.y-player.y)===1&&m.hp>0);
     if(!adj.length){addLog('No adj!',2);return}
     let m=adj[0];let cdBon=Object.values(player.eq||{}).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='judgmentday'))?2:0;
-    let d=calcDmg(atk*2+(player.smiteBonus||0),m.def);m.hp-=d;m.stun=2;
+    let d=hurt(m,calcDmg(atk*2+(player.smiteBonus||0),m.def));m.stun=2;
     spawnAnim('holy',player.x,player.y,m.x,m.y,'#ffe050');addLog('Judgement: -'+d+' stunned!',7);if(m.hp<=0)killMon(m);
     if(cdBon>0)ab.cd=Math.max(0,(ab.cd||0)-cdBon);did=true;
   }
   else if(ab.name==='Crusader Charge'){
     let dir=1,h=0;
-    for(let i=1;i<=3;i++){let tx=player.x+dir*i,ty=player.y;if(!inB(tx,ty)||G.tiles[ty][tx]==='#')break;let m=monsters.find(mo=>mo.x===tx&&mo.y===ty&&mo.hp>0);if(m){let d=calcDmg(atk,m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}player.x=tx}
+    for(let i=1;i<=3;i++){let tx=player.x+dir*i,ty=player.y;if(!inB(tx,ty)||G.tiles[ty][tx]==='#')break;let m=monsters.find(mo=>mo.x===tx&&mo.y===ty&&mo.hp>0);if(m){let d=hurt(m,calcDmg(atk,m.def));h++;if(m.hp<=0)killMon(m)}player.x=tx}
     addLog('Crusader Charge! '+h+' foes!',8);did=true;
   }
   else if(ab.name==='Sacrifice Strike'){player.sacrificeStrike=true;addLog('Sacrifice Strike ready!',2);did=true;}
@@ -658,7 +673,7 @@ function useAbility(idx){
   }
   else if(ab.name==='Bone Shield'){player.shielded=3;addLog('Bone Shield: +6DEF 3 turns!',9);did=true;}
   else if(ab.name==='Corpse Burst'){
-    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=calcDmg(atk*2*adm,m.def);m.hp-=d;h++;spawnP(m.x,m.y,'#55cc88','death');if(m.hp<=0)killMon(m)}});
+    let h=0;monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=hurt(m,calcDmg(atk*2*adm,m.def));h++;spawnP(m.x,m.y,'#55cc88','death');if(m.hp<=0)killMon(m)}});
     spawnAnim('explosion',player.x,player.y,player.x,player.y,'#55cc88');addLog('Corpse Burst: '+h+'!',9);did=true;
   }
   else if(ab.name==='Lich Form'){player.shielded=3;player.lichForm=3;addLog('LICH FORM: immune+dmg aura!',9);did=true;}
@@ -693,12 +708,12 @@ function useAbility(idx){
   else if(ab.name==='Death Nova'){
     if(player.hp<=15){addLog('Not enough HP!',2);return}
     player.hp-=15;let h=0;
-    monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=calcDmg(atk*3,m.def);m.hp-=d;h++;if(m.hp<=0)killMon(m)}});
+    monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=2&&Math.abs(m.y-player.y)<=2&&m.hp>0){let d=hurt(m,calcDmg(atk*3,m.def));h++;if(m.hp<=0)killMon(m)}});
     spawnAnim('explosion',player.x,player.y,player.x,player.y,'#9a3a9a');addLog('Death Nova: '+h+'! (-15HP)',5);did=true;
   }
   else if(ab.name==='Soul Storm'){
     let charges=player.soulCharges||0;let h=0;
-    monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=3&&Math.abs(m.y-player.y)<=3&&m.hp>0){let d=calcDmg(atk+charges*3,m.def);m.hp-=d;h++;spawnP(m.x,m.y,'#cc88ff');if(m.hp<=0)killMon(m)}});
+    monsters.forEach(m=>{if(Math.abs(m.x-player.x)<=3&&Math.abs(m.y-player.y)<=3&&m.hp>0){let d=hurt(m,calcDmg(atk+charges*3,m.def));h++;spawnP(m.x,m.y,'#cc88ff');if(m.hp<=0)killMon(m)}});
     player.soulCharges=0;addLog('Soul Storm('+charges+'): '+h+'!',5);did=true;
   }
   else if(ab.name==='Rot Cloud'){
@@ -753,7 +768,7 @@ function doTurn(){
       hz.armed=false;hz.sprung=true; // becomes a visible, spent trap
       let dmg=Math.max(4,6+floor*2);
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
-      if(player.ironWill)dmg=Math.min(dmg,player.hp-1);
+      dmg=ironWillClamp(dmg);
       if(player.floatStep){dmg=0;addLog('You float over hidden spikes!',6)}
       else{player.hp=Math.max(0,player.hp-dmg);triggerShake(6,8);triggerHitFlash(0.45);
         spawnFloatNum('-'+dmg,player.x,player.y,'#ff5555',true);spawnP(player.x,player.y,'#cccccc','hit');
@@ -762,7 +777,7 @@ function doTurn(){
       let dmg=Math.max(2,3+Math.floor(floor*0.8));
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
       if(player.fireImmune){dmg=0}
-      if(player.ironWill)dmg=Math.min(dmg,player.hp-1);
+      dmg=ironWillClamp(dmg);
       if(dmg>0){player.hp=Math.max(0,player.hp-dmg);triggerHitFlash(0.3);
         spawnFloatNum('-'+dmg,player.x,player.y,'#ff8a3a');spawnP(player.x,player.y,'#ff8a3a');
         addLog('Burning! -'+dmg,2);}

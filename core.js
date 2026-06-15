@@ -24,18 +24,29 @@ const FACINGS=[{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}]; // N,E,S,W
 // Permadeath stays intact: the save is wiped on death. Functions are not
 // serializable, so relics and item affixes are rehydrated by id on load.
 const SAVE_KEY='dungeon_depths_save_v1';
+const SAVE_VERSION=1; // bump when the save structure changes; old saves are discarded gracefully
 let _savePeek; // cached parsed save for the title-screen banner
-function hasSave(){try{return !!localStorage.getItem(SAVE_KEY)}catch(e){return false}}
+// A save is only valid if it parses, matches the current version, and has the
+// core fields. Anything else (corrupt, or from a future/older game build) is
+// treated as "no save" so it can never crash a returning player.
+function _validSave(d){
+  return !!(d && d.v===SAVE_VERSION && d.G && d.player && d.player.cls);
+}
+function hasSave(){return !!savePeek();}
 function savePeek(){
   if(_savePeek!==undefined)return _savePeek;
-  try{let raw=localStorage.getItem(SAVE_KEY);_savePeek=raw?JSON.parse(raw):null}
-  catch(e){_savePeek=null}
+  try{
+    let raw=localStorage.getItem(SAVE_KEY);
+    let d=raw?JSON.parse(raw):null;
+    if(d&&!_validSave(d)){clearSave();_savePeek=null;return null} // discard incompatible
+    _savePeek=d||null;
+  }catch(e){_savePeek=null}
   return _savePeek;
 }
 function saveGame(){
   if(gameOver||classChooser||specChooser)return;
   try{
-    let data={v:1,floor,turn,bossesKilled,totalKills,diffScale,bossFloor,bossActive,
+    let data={v:SAVE_VERSION,floor,turn,bossesKilled,totalKills,diffScale,bossFloor,bossActive,
       bossOrder,floorKills,floorItemsFound,merchantItems,player,monsters,items,G,fpMode};
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
     _savePeek=undefined;
@@ -52,8 +63,9 @@ function _rehydrateAffixes(it){
 function loadGame(){
   let raw;try{raw=localStorage.getItem(SAVE_KEY)}catch(e){return false}
   if(!raw)return false;
-  let d;try{d=JSON.parse(raw)}catch(e){return false}
-  if(!d||!d.G||!d.player)return false;
+  let d;try{d=JSON.parse(raw)}catch(e){clearSave();return false}
+  if(!_validSave(d)){clearSave();return false} // wrong version / corrupt → discard, stay on title
+  try{
   floor=d.floor;turn=d.turn;bossesKilled=d.bossesKilled||0;totalKills=d.totalKills||0;
   diffScale=d.diffScale||1;bossFloor=!!d.bossFloor;bossActive=!!d.bossActive;
   bossOrder=d.bossOrder||[];floorKills=d.floorKills||0;floorItemsFound=d.floorItemsFound||0;
@@ -74,6 +86,12 @@ function loadGame(){
   addLog('Run restored — floor '+floor+', turn '+turn+'. Welcome back.',8);
   drawAll();
   return true;
+  }catch(e){
+    // Any unexpected shape in an otherwise version-matched save: fail safe.
+    clearSave();classChooser=true;gameOver=false;
+    try{drawAll()}catch(_){}
+    return false;
+  }
 }
 
 const RARE_COLORS={0:'#8a8a6a',1:'#5aaae8',2:'#c85ae8',3:'#e8a020',4:'#ff5555'};
@@ -433,7 +451,7 @@ const ALL_RELICS=[
    flavor:'Everything risked, everything gained.',
    apply:(p)=>{p.atk+=6;p.def+=4;p.runicGamble=true;let cls=CLASSES.find(cl=>cl.name===p.cls);p.runicBaseAtk=cls?cls.atk:p.atk;p.runicBaseDef=cls?cls.def:p.def;}},
   {id:'iron_will',name:'Iron Will',icon:'🗿',type:'balanced',
-   buffs:['Cannot die while above 15 HP'],debuffs:['Healing reduced by 50%'],
+   buffs:['Cannot be killed in one hit above 15 HP'],debuffs:['Healing reduced by 50%'],
    flavor:'The body refuses to yield.',
    apply:(p)=>{p.ironWill=true}},
   {id:'eclipse_ring',name:'Eclipse Relic',icon:'🌘',type:'balanced',
