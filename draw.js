@@ -169,6 +169,63 @@ function getZoneTextures(){
   return _fpTexCache[tier];
 }
 
+// ── First-person textures from the 0x72 sheet ──
+// Samples the same wall/floor tiles the top-down view uses, upscaled to the
+// raycaster's 64x64 RGB format and tinted toward each zone's palette so the
+// zones keep their colour identity. Falls back to the procedural textures
+// above if the sheet isn't loaded. Cached per zone tier.
+let _fpSheetTexCache={};
+function _sampleTileRGB(name){
+  // returns a 64x64x3 Uint8ClampedArray from a 16x16 sheet tile, or null
+  let s=SPR[name]; if(!s||!sheetReady)return null;
+  let tc=document.createElement('canvas');tc.width=s[2];tc.height=s[3];
+  let tx=tc.getContext('2d');tx.imageSmoothingEnabled=false;
+  tx.drawImage(SHEET,s[0],s[1],s[2],s[3],0,0,s[2],s[3]);
+  let src;try{src=tx.getImageData(0,0,s[2],s[3]).data}catch(e){return null}
+  let out=new Uint8ClampedArray(TEXS*TEXS*3);
+  let sw=s[2],sh=s[3];
+  for(let y=0;y<TEXS;y++)for(let x=0;x<TEXS;x++){
+    let sx=(x*sw/TEXS)|0, sy=(y*sh/TEXS)|0;
+    let si=(sy*sw+sx)*4, a=src[si+3];
+    let r=src[si],g=src[si+1],b=src[si+2];
+    if(a<128){r=20;g=18;b=26;}
+    let o=(y*TEXS+x)*3; out[o]=r;out[o+1]=g;out[o+2]=b;
+  }
+  return out;
+}
+function _tintToward(arr,col,amt){
+  // shift every pixel a fraction (amt 0..1) toward col [r,g,b], preserving
+  // the tile's own light/dark structure so detail survives the recolour.
+  for(let i=0;i<arr.length;i+=3){
+    arr[i]  =arr[i]  +(col[0]-arr[i]  )*amt;
+    arr[i+1]=arr[i+1]+(col[1]-arr[i+1])*amt;
+    arr[i+2]=arr[i+2]+(col[2]-arr[i+2])*amt;
+  }
+  return arr;
+}
+function getSheetTextures(tier,fp){
+  if(_fpSheetTexCache[tier])return _fpSheetTexCache[tier];
+  let wallName = fp.moss ? 'wall_goo' : 'wall_mid';     // ooze walls in the fungal zone
+  let floorName= tier>=3 ? 'floor_4' : 'floor_1';        // slightly rougher floor deeper down
+  let wall=_sampleTileRGB(wallName);
+  let floor=_sampleTileRGB(floorName);
+  if(!wall||!floor)return null;                          // sheet not ready → caller falls back
+  // Tint toward the zone palette. Dungeon (tier 1) keeps the art almost raw;
+  // deeper zones tint harder so the colour identity reads clearly.
+  let wAmt=tier===1?0.10:0.34, fAmt=tier===1?0.10:0.30;
+  _tintToward(wall, fp.wall, wAmt);
+  _tintToward(floor, fp.floor, fAmt);
+  // Ceiling: the pack has no ceiling tile, so derive a darkened wall.
+  let ceil=new Uint8ClampedArray(wall.length);
+  for(let i=0;i<wall.length;i+=3){
+    ceil[i]  =Math.min(255, wall[i]  *0.42 + fp.ceil[0]*0.5);
+    ceil[i+1]=Math.min(255, wall[i+1]*0.42 + fp.ceil[1]*0.5);
+    ceil[i+2]=Math.min(255, wall[i+2]*0.42 + fp.ceil[2]*0.5);
+  }
+  _fpSheetTexCache[tier]={wall,floor,ceil};
+  return _fpSheetTexCache[tier];
+}
+
 function drawFP(){
   let W=canvas.width,H=canvas.height;
   let theme=getFloorTheme();
@@ -190,6 +247,9 @@ function drawFP(){
   let horizonR=RH/2;
   let pxc=px, pyc=py;
   let TEX=getZoneTextures();
+  let _tier=Math.ceil(floor/5); if(_tier<1)_tier=1; if(_tier>5)_tier=5;
+  let _sheetTex=getSheetTextures(_tier, getFloorTheme().fp);
+  if(_sheetTex)TEX=_sheetTex;        // use real pack art when the sheet is loaded
   let TXW=TEX.wall, TXF=TEX.floor, TXC=TEX.ceil;
 
   // precompute left/right ray directions
