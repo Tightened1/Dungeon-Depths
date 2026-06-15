@@ -2,8 +2,8 @@
 // SETUP (see SETUP_LEADERBOARD.md): paste your two values below.
 // While these are empty the leaderboard is fully disabled and the game
 // behaves exactly as before — safe to ship either way.
-let LB_URL='https://cakaairkyzomzskszvec.supabase.co';   // e.g. 'https://abcdefghijkl.supabase.co'
-let LB_KEY='sb_publishable_i7ueCWk57_HfDFTY0N5lww_a0vORYZc';   // your 'anon public' API key (it is designed to be public)
+let LB_URL='';   // e.g. 'https://abcdefghijkl.supabase.co'
+let LB_KEY='';   // your 'anon public' API key (it is designed to be public)
 
 function LB_ENABLED(){return !!(LB_URL&&LB_KEY)}
 function lbHeaders(){return {apikey:LB_KEY,Authorization:'Bearer '+LB_KEY,'Content-Type':'application/json'}}
@@ -15,10 +15,22 @@ function fetchLeaderboard(force){
   let now=Date.now();
   if(!force&&(lbStatus==='loading'||(lbCache&&now-lbFetchedAt<60000)))return;
   lbStatus='loading';
-  fetch(LB_URL+'/rest/v1/scores?select=name,cls,floor,kills&order=floor.desc,kills.desc&limit=10',
+  fetch(LB_URL+'/rest/v1/scores?select=name,cls,floor,kills&order=floor.desc,kills.desc&limit=200',
         {headers:lbHeaders()})
     .then(r=>r.ok?r.json():Promise.reject(r.status))
-    .then(rows=>{lbCache=rows;lbFetchedAt=Date.now();lbStatus='ok';if(classChooser)drawAll()})
+    .then(rows=>{
+      // Keep only each player's best run. Rows arrive sorted best-first, so the
+      // first time a name appears is their top score; later repeats are dropped.
+      // Names are compared case-insensitively and trimmed so "dave"/"Dave " merge.
+      let seen=new Set(), best=[];
+      for(let r of rows){
+        let key=(r.name||'').trim().toLowerCase();
+        if(seen.has(key))continue;
+        seen.add(key); best.push(r);
+        if(best.length>=10)break;
+      }
+      lbCache=best;lbFetchedAt=Date.now();lbStatus='ok';if(classChooser)drawAll();
+    })
     .catch(()=>{lbStatus='err'});
 }
 
