@@ -504,7 +504,18 @@ function spriteToCanvas(key,m){
     o.fillStyle='#ffd25a';o.fillRect(14,9,1,2);
     _fpSpriteCache[key]=cv;return cv;
   }
-  if(key.startsWith('B:')){let n=key.slice(2);let sp=BOSS_SPRITES[n];if(sp){map=sp.map;pal=sp.pal}}
+  if(key.startsWith('B:')){
+    let n=key.slice(2);
+    // Prefer the CC0 sheet boss art in first-person too
+    let bnm=BOSS_SHEET[n];
+    if(bnm&&sheetReady&&SPR[bnm]){
+      let s=SPR[bnm];
+      let cv=document.createElement('canvas');cv.width=s[2];cv.height=s[3];
+      cv.getContext('2d').drawImage(SHEET,s[0],s[1],s[2],s[3],0,0,s[2],s[3]);
+      _fpSpriteCache[key]=cv;return cv;
+    }
+    let sp=BOSS_SPRITES[n];if(sp){map=sp.map;pal=sp.pal}
+  }
   if(!map){let sp=MONSTER_SPRITES[key]||(m&&MONSTER_SPRITES[m.sym]);if(sp){map=sp.map;pal=sp.pal}}
   if(!map){map=GENERIC_MON_SPRITE;pal={1:(m&&m.col)||'#aaa',2:(m&&m.col)||'#888',3:'#ccc',4:'#fff',5:'#f44',6:'#666',7:'#fa6'}}
   let colsN=map[0].length, rowsN=map.length;
@@ -937,12 +948,25 @@ function drawMons(){
       // Ground shadow
       ctx.fillStyle='rgba(0,0,0,0.45)';
       ctx.beginPath();ctx.ellipse(mx+TW/2,my+TH-1,TW*0.7,TH*0.28,0,0,Math.PI*2);ctx.fill();
-      // Boss sprite — genuinely upscaled (~1.5x) and centred on its tile
-      let sp=BOSS_SPRITES[m.name]||MONSTER_SPRITES[m.sym]||{map:GENERIC_MON_SPRITE,pal:{1:m.col,2:m.col,3:m.col,4:'#ffffff',5:'#ff4444',6:'#888888'}};
-      let bScale=1.5,bw=18*bScale;
-      ctx.save();ctx.translate(mx+TW/2-bw/2,my+TH-18*bScale);
-      drawSprite(0,0,sp.map,sp.pal,bScale);
-      ctx.restore();
+      // Boss sprite — prefer the CC0 sheet art, else the hand-coded sprite
+      let _bnm=BOSS_SHEET[m.name], _bdrew=false;
+      if(_bnm&&sheetReady&&SPR[_bnm]){
+        let s=SPR[_bnm];
+        let bw2=TW*1.5, bh2=bw2*(s[3]/s[2]);
+        let flip=m.x>player.x;
+        ctx.save();ctx.imageSmoothingEnabled=false;
+        if(flip){ctx.translate(mx+TW/2,0);ctx.scale(-1,1);ctx.translate(-(mx+TW/2),0);}
+        ctx.drawImage(SHEET,s[0],s[1],s[2],s[3],mx+TW/2-bw2/2,my+TH-bh2,bw2,bh2);
+        ctx.restore();
+        _bdrew=true;
+      }
+      if(!_bdrew){
+        let sp=BOSS_SPRITES[m.name]||MONSTER_SPRITES[m.sym]||{map:GENERIC_MON_SPRITE,pal:{1:m.col,2:m.col,3:m.col,4:'#ffffff',5:'#ff4444',6:'#888888'}};
+        let bScale=1.5,bw=18*bScale;
+        ctx.save();ctx.translate(mx+TW/2-bw/2,my+TH-18*bScale);
+        drawSprite(0,0,sp.map,sp.pal,bScale);
+        ctx.restore();
+      }
       // Boss name
       ctx.fillStyle='rgba(0,0,0,0.78)';let nw=m.name.length*5.5;ctx.fillRect(mx+TW/2-nw/2-3,my-16,nw+6,11);
       ctx.fillStyle=m.col;ctx.font='bold 8px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText(m.name,mx+TW/2,my-9);
