@@ -2,8 +2,8 @@
 // SETUP (see SETUP_LEADERBOARD.md): paste your two values below.
 // While these are empty the leaderboard is fully disabled and the game
 // behaves exactly as before — safe to ship either way.
-let LB_URL='https://cakaairkyzomzskszvec.supabase.co';   // e.g. 'https://abcdefghijkl.supabase.co'
-let LB_KEY='sb_publishable_i7ueCWk57_HfDFTY0N5lww_a0vORYZc';   // your 'anon public' API key (it is designed to be public)
+let LB_URL='';   // e.g. 'https://abcdefghijkl.supabase.co'
+let LB_KEY='';   // your 'anon public' API key (it is designed to be public)
 
 function LB_ENABLED(){return !!(LB_URL&&LB_KEY)}
 function lbHeaders(){return {apikey:LB_KEY,Authorization:'Bearer '+LB_KEY,'Content-Type':'application/json'}}
@@ -40,11 +40,13 @@ let lbName='';
 function lbLoadName(){try{return localStorage.getItem('dd_lb_name')||''}catch(e){return ''}}
 function lbOnDeath(){ // called once when the hero falls
   if(!LB_ENABLED()){lbSubmitState='off';return}
+  if(typeof isDebugRun==='function'&&isDebugRun()){lbSubmitState='off';return} // debug run: no score
   lbSubmitState='naming';lbName=lbLoadName();
 }
 function lbReset(){lbSubmitState='off';}
 function lbSubmit(){
   if(!LB_ENABLED())return;
+  if(typeof isDebugRun==='function'&&isDebugRun()){lbSubmitState='skipped';return} // safety net
   let nm=lbName.trim().slice(0,12);
   if(!nm){lbSubmitState='skipped';return}
   try{localStorage.setItem('dd_lb_name',nm)}catch(e){}

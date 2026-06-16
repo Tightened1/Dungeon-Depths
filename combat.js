@@ -241,6 +241,7 @@ function moveMons(){
       if(player.sanctuary>0)baseDmg=Math.min(1,baseDmg);
       if(player.sacredVow>0&&player.sacredVow>=baseDmg){player.sacredVow-=baseDmg;baseDmg=0}
       let dmg=baseDmg;
+      if(player._godmode)dmg=0; // debug god mode
       if(player.taunt)dmg=Math.floor(dmg*Math.max(0.1,1-player.taunt*0.3));
       if(player.divineFavor&&Math.random()<0.2)dmg=0;
       if(player.vengeance)player.vengeanceDmg=(player.vengeanceDmg||0)+dmg;
