@@ -225,22 +225,125 @@ function makeElite(m){
   return m;
 }
 
+// ══ ITEM RARITY & ROLLING ══
+// Weighted rarity for chest items: 2% legendary, 20% rare, 35% uncommon, 43% common.
+function rollRarity(){
+  let r=Math.random()*100;
+  if(r<2)return 3;        // legendary
+  if(r<22)return 2;       // rare
+  if(r<57)return 1;       // uncommon
+  return 0;               // common
+}
+// Pick a random item of a given rarity from a category pool; falls back to nearest tier.
+function pickItemOfRarity(pool,rare){
+  let matches=pool.filter(it=>it.rare===rare);
+  if(!matches.length){ // widen search downward then upward
+    for(let dr=1;dr<4&&!matches.length;dr++){
+      matches=pool.filter(it=>it.rare===rare-dr); if(matches.length)break;
+      matches=pool.filter(it=>it.rare===rare+dr);
+    }
+  }
+  if(!matches.length)matches=pool;
+  return {...matches[rnd(0,matches.length-1)]};
+}
+// Roll a single equipment item across all categories at a target rarity.
+function rollChestItem(rare){
+  let cats=[['weapon',WEAPONS],['armor',ARMORS],['ring',RINGS],['amulet',AMULETS]];
+  let [type,pool]=cats[rnd(0,cats.length-1)];
+  let it=pickItemOfRarity(pool,rare);
+  it.type=type;it.slot=type;it.level=0;it.id=Math.random();
+  return it;
+}
+// Potion rarity for chests: 10% rare(2), 30% uncommon(1), 60% common(0).
+function rollPotion(goldenChest){
+  let r=Math.random()*100, tier;
+  if(goldenChest){tier=(r<30)?2:1;}            // golden: 30% rare, 70% uncommon
+  else{tier=(r<10)?2:(r<40)?1:0;}              // normal: 10/30/60
+  let pot=POTIONS.find(p=>p.rare===tier)||POTIONS[0];
+  let it={...pot};it.type='potion';it.slot=null;it.level=0;it.id=Math.random();
+  return it;
+}
+
+// ══ CHESTS ══
+// Replace loose floor items with 2–4 chests placed in ROOMS (never hallways).
+// The starting room always has one. 5% of chests become Golden chests.
+// Chests are opened by walking into them (handled in tryMove).
 function mkItems(){
   items=[];
-  let cnt=bossFloor?2:4+floor;
-  for(let i=0;i<cnt;i++){
-    let rm=G.rooms[rnd(0,G.rooms.length-1)];
-    let ix=rnd(rm.x,rm.x+rm.w-1),iy=rnd(rm.y,rm.y+rm.h-1);
-    let tr=Math.random(),it,type,slot;
-    if(tr<0.2){it={...POTIONS[rnd(0,POTIONS.length-1)]};type='potion';slot=null}
-    else if(tr<0.45){it=mkItem(WEAPONS,'weapon','weapon');type='weapon';slot='weapon'}
-    else if(tr<0.65){it=mkItem(ARMORS,'armor','armor');type='armor';slot='armor'}
-    else if(tr<0.82){it=mkItem(RINGS,'ring','ring');type='ring';slot='ring'}
-    else{it=mkItem(AMULETS,'amulet','amulet');type='amulet';slot='amulet'}
-    it.x=ix;it.y=iy;it.id=Math.random();it.level=0;it.type=type;it.slot=slot;
-    items.push(it);
+  G.chests=[];
+  if(bossFloor)return; // boss floors handle their own loot drop
+  let rooms=G.rooms||[];
+  if(!rooms.length)return;
+  let startRoom=rooms[0];
+  // gather candidate room tiles (interior floor, not on stairs/player start)
+  function roomTiles(rm){
+    let ts=[];
+    for(let y=rm.y;y<rm.y+rm.h;y++)for(let x=rm.x;x<rm.x+rm.w;x++){
+      if(!inB(x,y)||G.tiles[y][x]!=='.')continue;
+      if(G.stairX===x&&G.stairY===y)continue;
+      if(x===player.x&&y===player.y)continue;
+      ts.push({x,y});
+    }
+    return ts;
+  }
+  let placed=new Set();
+  function placeChest(rm,forceGolden){
+    let ts=roomTiles(rm).filter(t=>!placed.has(t.x+','+t.y));
+    if(!ts.length)return false;
+    let t=ts[rnd(0,ts.length-1)];
+    placed.add(t.x+','+t.y);
+    let golden=forceGolden||(Math.random()<0.05);
+    G.chests.push({x:t.x,y:t.y,golden,opened:false,id:Math.random()});
+    return true;
+  }
+  // guaranteed chest in the starting room
+  placeChest(startRoom,false);
+  // 1–3 more chests (total 2–4) in random non-start rooms (rooms only)
+  let extra=rnd(1,3);
+  let otherRooms=rooms.slice(1);
+  for(let i=0;i<extra;i++){
+    let rm = otherRooms.length ? otherRooms[rnd(0,otherRooms.length-1)] : startRoom;
+    placeChest(rm,false);
   }
 }
+
+// Generate the contents of an opened chest. Returns an array of item objects
+// positioned around (ox,oy). Golden chests also stage a relic choice.
+function openChest(chest){
+  if(chest.opened)return;
+  chest.opened=true;
+  let drops=[];
+  if(chest.golden){
+    // 1 guaranteed legendary + guaranteed potion (golden odds); relics handled separately
+    drops.push(rollChestItem(3));
+    drops.push(rollPotion(true));
+    // offer a choice of 3 relics the player doesn't already own (reuse the relic overlay)
+    let owned=new Set((player.relics||[]).map(r=>r.id));
+    let avail=ALL_RELICS.filter(r=>!owned.has(r.id));
+    avail.sort(()=>Math.random()-0.5);
+    let choice=avail.slice(0,3);
+    if(choice.length&&typeof showRelicChoice==='function'){
+      showRelicChoice(choice,null);
+      let sub=document.getElementById('relic-subtitle');if(sub)sub.textContent='Golden Chest! Choose one relic';
+    }
+    addLog('✦ GOLDEN CHEST! A legendary and a relic await!',7);
+  } else {
+    let n=rnd(2,3);
+    for(let i=0;i<n;i++)drops.push(rollChestItem(rollRarity()));
+    drops.push(rollPotion(false)); // guaranteed potion
+    addLog('Chest opened — '+n+' items + a potion!',3);
+  }
+  // scatter drops onto nearby free room tiles
+  let spots=[];
+  for(let r=0;r<=2;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    let x=chest.x+dx,y=chest.y+dy;
+    if(inB(x,y)&&G.tiles[y][x]==='.'&&!(G.stairX===x&&G.stairY===y)&&!items.some(it=>it.x===x&&it.y===y)&&!spots.some(s=>s.x===x&&s.y===y))spots.push({x,y});
+  }
+  spots.sort((a,b)=>(Math.abs(a.x-chest.x)+Math.abs(a.y-chest.y))-(Math.abs(b.x-chest.x)+Math.abs(b.y-chest.y)));
+  drops.forEach((it,i)=>{let s=spots[i]||{x:chest.x,y:chest.y};it.x=s.x;it.y=s.y;items.push(it);floorItemsFound++;});
+  fov();updateUI();drawAll();
+}
+function chestAt(x,y){return (G.chests||[]).find(c=>c.x===x&&c.y===y&&!c.opened)}
 
 // ══ FOV ══
 function fov(){

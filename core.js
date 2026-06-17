@@ -24,7 +24,7 @@ const FACINGS=[{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}]; // N,E,S,W
 // Permadeath stays intact: the save is wiped on death. Functions are not
 // serializable, so relics and item affixes are rehydrated by id on load.
 const SAVE_KEY='dungeon_depths_save_v1';
-const SAVE_VERSION=1; // bump when the save structure changes; old saves are discarded gracefully
+const SAVE_VERSION=2; // chests + new itemization // bump when the save structure changes; old saves are discarded gracefully
 let _savePeek; // cached parsed save for the title-screen banner
 // A save is only valid if it parses, matches the current version, and has the
 // core fields. Anything else (corrupt, or from a future/older game build) is
@@ -137,11 +137,11 @@ const CLASSES=[
       {name:'Disguise',desc:'Active: Mimic enemy ATK for 5 turns CD12',ranks:1,costPer:2,isAbil:true,abilDef:{name:'Disguise',desc:'Mimic nearest enemy ATK',cd:0,max:12,range:0,aoe:false,isSpell:false}},
       {name:'Marked Kill',desc:'+10 HP on stealth kill per rank',ranks:2,costPer:2,effect:(p,r)=>{p.markedHeal=(p.markedHeal||0)+10},label:'+10 HP on stealth kill'},
     ]},
-    {name:'Contaminator',color:'#44cc44',desc:'Poison and damage over time',nodes:[
-      {name:'Toxic Cloud',desc:'Active: AoE poison 3x3 CD6',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Toxic Cloud',desc:'3x3 AoE poison',cd:0,max:6,range:2,aoe:true,isSpell:false}},
-      {name:'Virulent',desc:'+2 poison dmg/turn per rank — passive',ranks:3,costPer:1,effect:(p,r)=>{p.poisonBonus=(p.poisonBonus||0)+2},label:'+2 poison dmg'},
-      {name:'Plague',desc:'Kills spread poison to adjacent enemies',ranks:1,costPer:2,effect:(p,r)=>{p.plague=true},label:'Kills spread poison'},
-      {name:'Venom Fangs',desc:'+50% dmg vs poisoned enemies per rank',ranks:2,costPer:2,effect:(p,r)=>{p.venomFangs=(p.venomFangs||0)+1},label:'+50% vs poisoned'},
+    {name:'Marksman',color:'#88cc55',desc:'Ranged precision — melee core, deadly abilities at distance',nodes:[
+      {name:'Long Shot',desc:'Active: ranged shot, 2.2x dmg at range CD4',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Long Shot',desc:'2.2x ranged shot',cd:0,max:4,range:6,aoe:false,isSpell:false}},
+      {name:'Eagle Eye',desc:'+1 ability range & +6% ranged dmg per rank — passive',ranks:3,costPer:1,effect:(p,r)=>{p.rangedBonus=(p.rangedBonus||0)+1},label:'+range & ranged dmg'},
+      {name:'Multi Shot',desc:'Active: hit up to 3 enemies in a line CD6',ranks:1,costPer:2,isAbil:true,abilDef:{name:'Multi Shot',desc:'Hits 3 in a line',cd:0,max:6,range:5,aoe:true,isSpell:false}},
+      {name:'Deadeye',desc:'+12% crit (double) dmg on ranged hits per rank',ranks:2,costPer:2,effect:(p,r)=>{p.deadeye=(p.deadeye||0)+12},label:'+12% ranged crit'},
     ]},
     {name:'Ghost',color:'#aabbff',desc:'Dodge and avoid damage',nodes:[
       {name:'Ghost Form',desc:'Active: Untargetable 2 turns CD10',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Ghost Form',desc:'Untargetable 2 turns',cd:0,max:10,range:0,aoe:false,isSpell:false}},
@@ -324,6 +324,10 @@ const POTIONS=[
 // buffs[] / debuffs[] (display strings), apply(player) function called on pickup
 const ALL_RELICS=[
   // ── PURE BUFFS (16) ──
+  {id:'thiefs_tools',name:"Thief's Tools",icon:'🛠',type:'pure',
+   buffs:['Disarm spike traps harmlessly','Traps revealed on the map'],debuffs:[],
+   flavor:'A roll of picks, files and clever wire.',
+   apply:(p)=>{p.trapDisarm=true;p.revealTraps=true}},
   {id:'heart_stone',name:'Heart Stone',icon:'💎',type:'pure',
    buffs:['+20 Max HP','Gain 8 HP at start of each floor'],debuffs:[],
    flavor:'A gem warm to the touch.',
@@ -730,8 +734,12 @@ function upgradeCost(it){return Math.floor(it.val*(1+(it.level||0))*1.5)}
 function upgradeStats(it){let sc=1+(it.level||0)*0.4,st={};if(it.atk)st.atk=Math.floor(it.atk*sc);if(it.def)st.def=Math.floor(it.def*sc);return st}
 
 function mkItem(pool,type,slot,rareOverride=-1){
-  let r=Math.random();
-  let rarePick=rareOverride>=0?rareOverride:(r>0.93?2:r>0.7?1:0);
+  let rarePick;
+  if(rareOverride>=0)rarePick=rareOverride;
+  else{ // rarer in general: 2% legendary, 20% rare, 35% uncommon, 43% common
+    let r=Math.random()*100;
+    rarePick=r<2?3:r<22?2:r<57?1:0;
+  }
   let filtered=pool.filter(t=>t.rare===rarePick);
   if(!filtered.length)filtered=pool.filter(t=>t.rare<=rarePick);
   if(!filtered.length)filtered=pool;

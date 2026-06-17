@@ -841,11 +841,21 @@ function drawHazard(px,py,hz,light){
     }
   } else if(hz.type==='spike'){
     if(hz.armed){
+      if(typeof player!=='undefined'&&player.revealTraps){
+        // relic: traps clearly marked
+        let pulse=0.4+Math.sin(animT*4+px)*0.2;
+        ctx.strokeStyle=`rgba(255,90,90,${pulse})`;ctx.lineWidth=1.5;
+        ctx.strokeRect(px+2,py+2,TW-4,TH-4);
+        ctx.fillStyle=`rgba(255,120,80,${0.35*pulse})`;ctx.fillRect(px+3,py+3,TW-6,TH-6);
+        ctx.fillStyle=`rgba(255,200,120,${pulse})`;ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText('!',px+TW/2,py+TH/2);
+      } else {
       // subtle tell: faint cracked outline so an observant player can spot it
       ctx.strokeStyle=`rgba(120,110,90,${0.25*light})`;ctx.lineWidth=1;
       ctx.strokeRect(px+3,py+3,TW-6,TH-6);
       ctx.fillStyle=`rgba(90,80,70,${0.2*light})`;
       ctx.fillRect(px+TW/2-1,py+4,2,2);ctx.fillRect(px+5,py+TH-6,2,2);ctx.fillRect(px+TW-7,py+TH-6,2,2);
+      }
     } else {
       // sprung: visible metal spikes jutting up
       if(sheetReady&&SPR.floor_spikes){drawSheetTile('floor_spikes',px,py,3);return;}
@@ -915,6 +925,33 @@ function drawEffects(){
 }
 
 function drawItems(){
+  // Chests first (so dropped items render on top once opened)
+  (G.chests||[]).forEach(ch=>{
+    if(ch.opened)return;
+    if(!G.vis[ch.y]||!G.vis[ch.y][ch.x])return;
+    let x=ch.x*TW,y=ch.y*TH;
+    // gentle bob + glow
+    let bob=Math.sin(animT*2.5+ch.x+ch.y)*1.2;
+    if(ch.golden){
+      let g=ctx.createRadialGradient(x+TW/2,y+TH/2,1,x+TW/2,y+TH/2,TW);
+      let pulse=0.25+Math.sin(animT*3)*0.12;
+      g.addColorStop(0,`rgba(255,210,80,${pulse})`);g.addColorStop(1,'rgba(255,210,80,0)');
+      ctx.fillStyle=g;ctx.fillRect(x-TW/2,y-TH/2,TW*2,TH*2);
+    }
+    let drew=false;
+    if(sheetReady&&SPR.crate){
+      ctx.save();ctx.imageSmoothingEnabled=false;
+      if(ch.golden)ctx.filter='sepia(1) saturate(3) hue-rotate(-12deg) brightness(1.15)';
+      let s=SPR.crate;
+      ctx.drawImage(SHEET,s[0],s[1],s[2],s[3],x+1,y+1+bob,TW-2,TH-2);
+      ctx.restore();drew=true;
+    }
+    if(!drew){ // fallback: drawn chest
+      ctx.fillStyle=ch.golden?'#c9a227':'#7a5230';ctx.fillRect(x+3,y+5+bob,TW-6,TH-8);
+      ctx.fillStyle=ch.golden?'#ffe27a':'#9a6a40';ctx.fillRect(x+3,y+5+bob,TW-6,2);
+      ctx.fillStyle='#3a2616';ctx.fillRect(x+TW/2-1,y+7+bob,2,3);
+    }
+  });
   items.forEach(it=>{
     if(!G.vis[it.y]||!G.vis[it.y][it.x])return;
     drawItemSprite(it.x,it.y,it);

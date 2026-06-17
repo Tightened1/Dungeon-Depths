@@ -344,6 +344,11 @@ function tryMove(ent,nx,ny){
     atkMon(mon);return true;
   }
   if(monsters.some(m=>m.x===nx&&m.y===ny&&m.hp>0))return false;
+  // Walk into an unopened chest to open it (player only)
+  if(ent===player){
+    let ch=(typeof chestAt==='function')&&chestAt(nx,ny);
+    if(ch){ openChest(ch); return true; } // opening consumes the turn; player stays put
+  }
   ent.x=nx;ent.y=ny;return true;
 }
 
@@ -369,7 +374,11 @@ function killMon(m){
     loot.x=slots[0]?slots[0].x:bossRoom.cx;loot.y=slots[0]?slots[0].y:bossRoom.cy;
     items.push(loot);
     G.stairX=bossRoom.cx;G.stairY=bossRoom.cy;G.tiles[bossRoom.cy][bossRoom.cx]='>';
-    G.merchant={x:G.rooms[0].cx,y:G.rooms[0].cy};
+    // Merchant in a room that is NOT the start room and NOT the stairs room.
+    let mRoom=G.rooms.find(rm=>rm!==G.rooms[0]&&!(rm.cx===G.stairX&&rm.cy===G.stairY))||G.rooms[Math.max(0,G.rooms.length-1)];
+    let mmx=mRoom.cx,mmy=mRoom.cy;
+    if(mmx===G.stairX&&mmy===G.stairY)mmx=mRoom.x;
+    G.merchant={x:mmx,y:mmy};
     bossActive=false;
     merchantItems=genMerchantStock();
     addLog('BOSS SLAIN! Class loot dropped! Merchant arrived!',7);
@@ -397,6 +406,11 @@ function killMon(m){
         addLog(m.name+' explodes! -'+ed,2);
       } else addLog(m.name+' explodes!',2);
       monsters.forEach(o=>{if(o!==m&&o.hp>0&&!o._dead&&Math.abs(o.x-m.x)<=1&&Math.abs(o.y-m.y)<=1){o.hp-=ex;if(o.hp<=0)o._dead=true}});
+    }
+    // Legendary weapons drop ONLY from elites, at 10%
+    if(m.elite&&Math.random()<0.10){
+      let li=mkItem(WEAPONS,'weapon','weapon',3);li.x=m.x;li.y=m.y;items.push(li);floorItemsFound++;
+      addLog('✦ LEGENDARY weapon drops from the '+(m.eliteName||'elite')+'!',8);
     }
     if(m.specialLoot&&Math.random()<0.4){
       let t=['weapon','armor','ring','amulet'][rnd(0,3)];
@@ -512,6 +526,30 @@ function useAbility(idx){
     doHit();if(dbl)doHit();
     setTimeout(()=>spawnAnim('explosion',cx,cy,cx,cy,'#e87a3a'),200);
     addLog('FIREBALL rank'+fr+': '+h+' hit!',2);did=true;
+  }
+  else if(ab.name==='Long Shot'){
+    let rng=(ab.range||6)+(player.rangedBonus||0);
+    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=rng&&d<nd){nd=d;near=m}}});
+    if(!near){addLog('No target in range!',2);return}
+    spawnAnim('fireball',player.x,player.y,near.x,near.y,'#cce85a');
+    let rmult=2.2*(1+(player.rangedBonus||0)*0.06);
+    let crit=(player.deadeye&&Math.random()*100<player.deadeye);
+    let d=hurt(near,calcDmg(atk*rmult*adm,near.def)*(crit?2:1));
+    addLog((crit?'Long Shot CRIT -':'Long Shot -')+d,crit?4:1);
+    if(near.hp<=0)killMon(near);did=true;
+  }
+  else if(ab.name==='Multi Shot'){
+    let rng=(ab.range||5)+(player.rangedBonus||0);
+    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let dd=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(dd<=rng&&dd<nd){nd=dd;near=m}}});
+    if(!near){addLog('No target in range!',2);return}
+    let dirx=Math.sign(near.x-player.x), diry=Math.sign(near.y-player.y);
+    if(dirx===0&&diry===0)diry=-1;
+    let hits=monsters.filter(m=>m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]&&Math.sign(m.x-player.x)===dirx&&Math.sign(m.y-player.y)===diry&&(Math.abs(m.x-player.x)+Math.abs(m.y-player.y))<=rng)
+                     .sort((a,b)=>(Math.abs(a.x-player.x)+Math.abs(a.y-player.y))-(Math.abs(b.x-player.x)+Math.abs(b.y-player.y)))
+                     .slice(0,3);
+    let rmult=1.0*(1+(player.rangedBonus||0)*0.06);
+    hits.forEach(m=>{spawnAnim('fireball',player.x,player.y,m.x,m.y,'#aadd55');let crit=(player.deadeye&&Math.random()*100<player.deadeye);let d=hurt(m,calcDmg(atk*rmult*adm,m.def)*(crit?2:1));if(m.hp<=0)killMon(m)});
+    addLog('Multi Shot hits '+hits.length+'!',4);did=true;
   }
   else if(ab.name==='Magic Missile'){
     let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=(ab.range||2)&&d<nd){nd=d;near=m}}});
@@ -772,6 +810,8 @@ function doTurn(){
   let hz=hazardAt(player.x,player.y);
   if(hz){
     if(hz.type==='spike'&&hz.armed){
+      if(player.trapDisarm){hz.armed=false;hz.sprung=true;addLog('⚙ You deftly disarm the trap!',6);spawnP(player.x,player.y,'#88cc88','hit');}
+      else{
       hz.armed=false;hz.sprung=true; // becomes a visible, spent trap
       let dmg=Math.max(4,6+floor*2);
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
@@ -780,6 +820,7 @@ function doTurn(){
       else{player.hp=Math.max(0,player.hp-applyPlayerDamage(dmg));triggerShake(6,8);triggerHitFlash(0.45);
         spawnFloatNum('-'+dmg,player.x,player.y,'#ff5555',true);spawnP(player.x,player.y,'#cccccc','hit');
         addLog('Spike trap! -'+dmg,2);}
+      }
     } else if(hz.type==='fire'){
       let dmg=Math.max(2,3+Math.floor(floor*0.8));
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
