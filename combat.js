@@ -148,7 +148,7 @@ function moveMons(){
       else if(player.mirrorBroken&&rdmg>0)rdmg*=2;
       if(player.thornCrown)rdmg=Math.floor(rdmg*1.15);
       rdmg+=(player.dmgTaken||0);
-      if(player.dmgMult)rdmg=Math.floor(rdmg*(player.dmgMult||1));
+      if(player.dmgTakenPct)rdmg=Math.floor(rdmg*(1+player.dmgTakenPct));
       if(player.sanctuary>0)rdmg=Math.min(1,rdmg);
       rdmg=ironWillClamp(rdmg);
       let rcol=m.drainHp?'#cc44cc':m.raisesDead?'#5a8aaa':'#e84a4a';
@@ -236,8 +236,8 @@ function moveMons(){
       if(player.thornCrown)baseDmg=Math.floor(baseDmg*1.15);
       // Relic: void crystal / dmgTaken flat bonus
       baseDmg+=player.dmgTaken||0;
-      // Relic: betrayer ring — double damage
-      if(player.dmgMult)baseDmg=Math.floor(baseDmg*(player.dmgMult||1));
+      // Relics that increase damage taken (Betrayer Ring, etc.)
+      if(player.dmgTakenPct)baseDmg=Math.floor(baseDmg*(1+player.dmgTakenPct));
       // Relic: phantom cloak — first hit absorbed
       if(player.cloakActive&&baseDmg>0){addLog('Phantom Cloak absorbs the hit!',5);player.cloakActive=false;baseDmg=0}
       // Relic: mirror curse — double dmg after first hit
@@ -455,6 +455,7 @@ function atkMon(m){
   let stealthMult=player.stealthed>0?(1+(player.silentStep||0)):1;
   let deathmarkHit=player.deathMark;if(deathmarkHit){mult=999;player.deathMark=false}
   let dmg=calcDmg(atk*mult*stealthMult,Math.max(0,m.def-manaburn));
+  if(player.dmgMult)dmg=Math.floor(dmg*player.dmgMult); // Betrayer Ring etc. — outgoing damage boost
   if(fpMode)fpSwing=1; // first-person weapon swing
   // Elite: Shielded — first few hits are largely absorbed
   if(m.elite==='shielded'&&m.shieldHits>0){
@@ -471,7 +472,7 @@ function atkMon(m){
   if(player.doubleStrike&&Math.random()*100<player.doubleStrike){let d2=bossCap(m,calcDmg(atk,m.def));m.hp-=d2;addLog('Double Strike! -'+d2,1)}
   if(player.infectChance)m.poison=(m.poison||0)+player.infectChance;
   // Relic: cursed blade — hurt self too
-  if(player.cursedBlade){player.hp=Math.max(1,player.hp-2);addLog('Cursed Blade bites! -2 HP',2)}
+  if(player.cursedBlade){let cc=player.cursedBladeCost||3;player.hp=Math.max(1,player.hp-cc);addLog('Cursed Blade bites! -'+cc+' HP',2)}
   // Relic: leech ring — steal 5 HP on hit
   if(player.leechRing){player.hp=Math.min(player.mhp,player.hp+5)}
   // Relic: thunder charm — 15% stun

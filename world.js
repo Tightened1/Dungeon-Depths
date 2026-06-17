@@ -391,9 +391,6 @@ function effStat(s){
     bonus+=(player.holyBlade||0);
     bonus+=(player.spellBonusFlat||0); // for spells (approximation)
   }
-  if(s==='def'&&player.antiSmite){
-    // antiSmite applied elsewhere — DEF reduction vs non-boss handled in moveMons
-  }
   return Math.max(0,b+bonus);
 }
 
