@@ -308,24 +308,19 @@ function tryMove(ent,nx,ny){
       let sr=(G.secretRooms||[]).find(r=>r.idx===sw.s&&!r.stocked);
       if(sr){
         sr.stocked=true;
-        let numItems=rnd(2,4);
-        for(let si=0;si<numItems;si++){
-          let pools=[{p:WEAPONS,t:'weapon'},{p:ARMORS,t:'armor'},{p:RINGS,t:'ring'},{p:AMULETS,t:'amulet'}];
-          let pt=pools[rnd(0,pools.length-1)];
-          let rarity=Math.min(3,rnd(1,3));
-          let it=mkItem(pt.p,pt.t,pt.t,rarity);
-          let placed=false;
-          for(let py2=sr.y;py2<sr.y+sr.h&&!placed;py2++)
-            for(let px2=sr.x;px2<sr.x+sr.w&&!placed;px2++)
-              if(G.tiles[py2][px2]==='.'&&!items.some(i=>i.x===px2&&i.y===py2)){it.x=px2;it.y=py2;items.push(it);placed=true}
-        }
-        // 30% chance: bonus relic
-        if(Math.random()<0.3&&player.relics){
-          let pool=pickRelicPool(1);
-          if(pool.length>0){
-            addLog('✦ A RELIC glimmers in the secret room!',3);
-            setTimeout(()=>showRelicChoice(pool,()=>{fov();updateUI();drawAll();updateRelicPanel()}),300);
-          }
+        // Secret rooms now offer a choice of 3 relics (no item loot)
+        let owned=new Set((player.relics||[]).map(r=>r.id));
+        let avail=ALL_RELICS.filter(r=>!owned.has(r.id));
+        avail.sort(()=>Math.random()-0.5);
+        let choice=avail.slice(0,3);
+        if(choice.length&&typeof showRelicChoice==='function'){
+          addLog('✦ A hidden shrine offers you a relic!',3);
+          setTimeout(()=>{
+            showRelicChoice(choice,()=>{fov();updateUI();drawAll();updateRelicPanel()});
+            let sub=document.getElementById('relic-subtitle');if(sub)sub.textContent='Secret shrine — choose one relic';
+          },300);
+        } else {
+          addLog('✦ A hidden shrine — but its relics are all yours already.',3);
         }
         fov();drawAll();
       }

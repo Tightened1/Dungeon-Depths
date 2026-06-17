@@ -27,10 +27,10 @@ function mkDungeon(){
   }
   G.rooms=sorted;
   if(!bossFloor){let sr=sorted[sorted.length-1];G.stairX=sr.cx;G.stairY=sr.cy;G.tiles[sr.cy][sr.cx]='>'}
-  // ── Secret rooms: 1-2 per floor, hidden behind bumpable walls ──
+  // ── Secret room: at most 1 per floor, 10% chance, hidden behind a bumpable wall ──
   G.secretWalls=[];G.secretRooms=[];
-  if(!bossFloor&&floor>=2){
-    let numSecrets=rnd(1,2);
+  if(!bossFloor&&floor>=2&&Math.random()<0.10){
+    let numSecrets=1;
     let secretsPlaced=0;
     for(let s=0;s<numSecrets;s++){
       let tries=0;
