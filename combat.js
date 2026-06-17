@@ -5,6 +5,13 @@
 // No single hit may remove more than 35% of a boss's max HP. Burst builds
 // (Legendary Edge, Death Mark, stealth Backstab, Heavenly Bolt stacks) stay
 // devastating against everything else, but can never delete a boss outright.
+// Single point for ENEMY damage to the player. Honors debug god mode.
+// (Self-inflicted ability costs like Sacrifice Strike intentionally bypass this.)
+function applyPlayerDamage(dmg){
+  if(player._godmode)return 0;
+  return dmg;
+}
+
 function bossCap(m,dmg){
   if(m&&m.isBoss&&dmg>m.mhp*0.35){
     addLog('The '+m.name+' endures the blow!',7);
@@ -146,7 +153,7 @@ function moveMons(){
       rdmg=ironWillClamp(rdmg);
       let rcol=m.drainHp?'#cc44cc':m.raisesDead?'#5a8aaa':'#e84a4a';
       spawnAnim('fireball',m.x,m.y,player.x,player.y,rcol);
-      player.hp=Math.max(0,player.hp-rdmg);
+      player.hp=Math.max(0,player.hp-applyPlayerDamage(rdmg));
       if(m.drainHp&&rdmg>0)m.hp=Math.min(m.mhp||999,m.hp+m.drainHp);
       if(player.reflectFlat&&rdmg>0)m.hp-=player.reflectFlat;
       if(player.thornCrown&&rdmg>0)m.hp-=Math.floor(rdmg*0.3);
@@ -182,7 +189,7 @@ function moveMons(){
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
         bdmg=ironWillClamp(bdmg);
         spawnAnim('fireball',m.x,m.y,player.x,player.y,'#cc44cc');
-        player.hp=Math.max(0,player.hp-bdmg);
+        player.hp=Math.max(0,player.hp-applyPlayerDamage(bdmg));
         m.hp=Math.min(m.mhp,m.hp+Math.floor(bdmg/2));
         if(bdmg>0)triggerShake(6,8);
         addLog(m.name+': BLOOD MISSILE -'+bdmg+'! (heals self)',7);
@@ -190,14 +197,14 @@ function moveMons(){
         bdmg=Math.max(1,Math.floor(m.atk*0.6));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
         bdmg=ironWillClamp(bdmg);
-        player.hp=Math.max(0,player.hp-bdmg);
+        player.hp=Math.max(0,player.hp-applyPlayerDamage(bdmg));
         if(bdmg>0)triggerShake(7,8);
         addLog(m.name+': SHOCKWAVE -'+bdmg+'!',7);
       } else if(m.bossAbil==='shadow_nova'&&dist<=5){
         bdmg=Math.max(1,Math.floor(m.atk*0.75)-Math.floor(effStat('def')*0.3));
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
         bdmg=ironWillClamp(bdmg);
-        player.hp=Math.max(0,player.hp-bdmg);
+        player.hp=Math.max(0,player.hp-applyPlayerDamage(bdmg));
         if(bdmg>0)triggerShake(6,8);
         if(!(player.stunImmune))player.stun=2;
         addLog(m.name+': SHADOW NOVA -'+bdmg+(player.stunImmune?'!':' STUNNED!'),7);
@@ -206,7 +213,7 @@ function moveMons(){
         if(player.sanctuary>0)bdmg=Math.min(1,bdmg);
         bdmg=ironWillClamp(bdmg);
         spawnAnim('fireball',m.x,m.y,player.x,player.y,'#ff3333');
-        player.hp=Math.max(0,player.hp-bdmg);
+        player.hp=Math.max(0,player.hp-applyPlayerDamage(bdmg));
         if(bdmg>0)triggerShake(8,10);
         addLog(m.name+': VOID BREATH -'+bdmg+'!',7);
       }
@@ -241,7 +248,6 @@ function moveMons(){
       if(player.sanctuary>0)baseDmg=Math.min(1,baseDmg);
       if(player.sacredVow>0&&player.sacredVow>=baseDmg){player.sacredVow-=baseDmg;baseDmg=0}
       let dmg=baseDmg;
-      if(player._godmode)dmg=0; // debug god mode
       if(player.taunt)dmg=Math.floor(dmg*Math.max(0.1,1-player.taunt*0.3));
       if(player.divineFavor&&Math.random()<0.2)dmg=0;
       if(player.vengeance)player.vengeanceDmg=(player.vengeanceDmg||0)+dmg;
@@ -249,7 +255,7 @@ function moveMons(){
       // Relic: thorn crown — reflect 30% of incoming
       if(player.thornCrown&&m.hp>0&&dmg>0){let ref=Math.floor(dmg*0.3);m.hp-=ref}
       triggerAffix('onHit',m);
-      player.hp-=dmg;
+      player.hp-=applyPlayerDamage(dmg);
       if(dmg>0){
         // Impact feedback scaled to how hard the hit was
         let frac=dmg/Math.max(1,player.mhp);
@@ -386,7 +392,7 @@ function killMon(m){
       let ex=Math.max(3,Math.floor(m.atk*0.8));
       if(Math.abs(player.x-m.x)<=1&&Math.abs(player.y-m.y)<=1){
         let ed=ex; if(player.sanctuary>0)ed=Math.min(1,ed); ed=ironWillClamp(ed);
-        player.hp=Math.max(0,player.hp-ed);triggerShake(7,9);triggerHitFlash(0.5);
+        player.hp=Math.max(0,player.hp-applyPlayerDamage(ed));triggerShake(7,9);triggerHitFlash(0.5);
         spawnFloatNum('-'+ed,player.x,player.y,'#ff8a3a',true);
         addLog(m.name+' explodes! -'+ed,2);
       } else addLog(m.name+' explodes!',2);
@@ -771,7 +777,7 @@ function doTurn(){
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
       dmg=ironWillClamp(dmg);
       if(player.floatStep){dmg=0;addLog('You float over hidden spikes!',6)}
-      else{player.hp=Math.max(0,player.hp-dmg);triggerShake(6,8);triggerHitFlash(0.45);
+      else{player.hp=Math.max(0,player.hp-applyPlayerDamage(dmg));triggerShake(6,8);triggerHitFlash(0.45);
         spawnFloatNum('-'+dmg,player.x,player.y,'#ff5555',true);spawnP(player.x,player.y,'#cccccc','hit');
         addLog('Spike trap! -'+dmg,2);}
     } else if(hz.type==='fire'){
@@ -779,7 +785,7 @@ function doTurn(){
       if(player.sanctuary>0)dmg=Math.min(1,dmg);
       if(player.fireImmune){dmg=0}
       dmg=ironWillClamp(dmg);
-      if(dmg>0){player.hp=Math.max(0,player.hp-dmg);triggerHitFlash(0.3);
+      if(dmg>0){player.hp=Math.max(0,player.hp-applyPlayerDamage(dmg));triggerHitFlash(0.3);
         spawnFloatNum('-'+dmg,player.x,player.y,'#ff8a3a');spawnP(player.x,player.y,'#ff8a3a');
         addLog('Burning! -'+dmg,2);}
     }
