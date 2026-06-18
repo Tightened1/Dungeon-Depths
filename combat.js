@@ -347,6 +347,20 @@ function tryMove(ent,nx,ny){
   ent.x=nx;ent.y=ny;return true;
 }
 
+function triggerFinalVictory(){
+  if(victoryWin)return;
+  bossActive=false;
+  triggerShake(12,20);
+  try{localStorage.setItem('dd_prestige_unlocked','1')}catch(e){}
+  prestigeUnlocked=true;
+  victoryWin=true; gameOver=true;
+  addLog('★ THE GOD DEMON FALLS! YOU HAVE CONQUERED THE DEPTHS! ★',7);
+  addLog('★ PRESTIGE CLASS UNLOCKED — choose it on the title screen! ★',7);
+  clearSave();
+  if(typeof lbOnDeath==='function')lbOnDeath();
+  drawAll();
+}
+
 function killMon(m){
   if(m._dead)return;m._dead=true;
   if(!m.isBoss&&!m.isMinion){floorKills++;totalKills++;}
@@ -357,19 +371,7 @@ function killMon(m){
   updateAnims();
   if(m.isBoss){
     // ── FINAL BOSS: victory! ──
-    if(m.isFinal||m.name==='GOD DEMON'){
-      bossActive=false;
-      triggerShake(12,20);
-      try{localStorage.setItem('dd_prestige_unlocked','1')}catch(e){}
-      prestigeUnlocked=true;
-      victoryWin=true; gameOver=true;
-      addLog('★ THE GOD DEMON FALLS! YOU HAVE CONQUERED THE DEPTHS! ★',7);
-      addLog('★ PRESTIGE CLASS UNLOCKED — choose it on the title screen! ★',7);
-      clearSave();
-      if(typeof lbOnDeath==='function')lbOnDeath(); // a win is leaderboard-worthy too
-      drawAll();
-      return;
-    }
+    if(m.isFinal||m.name==='GOD DEMON'){ triggerFinalVictory(); return; }
     bossesKilled++;
     const DIFF_CURVE=[1,1.25,1.5,1.8,2.1,2.45];
     diffScale=DIFF_CURVE[Math.min(bossesKilled,DIFF_CURVE.length-1)];
@@ -832,6 +834,10 @@ function doTurn(){
   triggerAffix('onTurn');
   // Relic per-turn effects
   if(player.doomSeal)player.hp=Math.max(1,player.hp-5);
+  if(!victoryWin){
+    let fb=monsters.find(m=>(m.isFinal||m.name==='GOD DEMON')&&(m.hp<=0||m._dead));
+    if(fb)triggerFinalVictory();
+  }
   monsters=monsters.filter(m=>m.hp>0&&!m._dead);
   // ── Environmental hazards underfoot ──
   let hz=hazardAt(player.x,player.y);
