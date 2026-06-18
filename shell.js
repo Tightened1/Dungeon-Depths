@@ -339,6 +339,10 @@ function chooseClass(ci){
     ghost:0,stealthed:0,arcaneSurge:0,soulStack:0,soulCharges:0,skillPts:0,_martyrUsed:false,
     spec:null,specIdx:null,treeNodes:{},atStair:false,atMerch:false,facing:1,
     abilities:c.baseAbils.map(a=>({...a,cd:0})),inventory:[],eq:{weapon:null,armor:null,ring:null,amulet:null}};
+  // Per-class HP-per-level: lower base HP → faster growth, so squishy classes
+  // close the late-game survivability gap without losing early-game fragility.
+  let _hpg={Warrior:5,Paladin:5,Cleric:6,Rogue:7,Necromancer:7,Mage:8};
+  player.hpGrowth=_hpg[c.name]||5;
   classChooser=false;specChooser=true;drawAll();
 }
 

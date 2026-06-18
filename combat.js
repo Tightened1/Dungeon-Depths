@@ -357,7 +357,7 @@ function killMon(m){
   updateAnims();
   if(m.isBoss){
     bossesKilled++;
-    const DIFF_CURVE=[1,1.3,1.6,2.0,2.5,3.2];
+    const DIFF_CURVE=[1,1.25,1.5,1.8,2.1,2.45];
     diffScale=DIFF_CURVE[Math.min(bossesKilled,DIFF_CURVE.length-1)];
     let loot=genBossLoot(m.bossRef,player.cls);
     let bossRoom=G.rooms[Math.floor(G.rooms.length/2)];
@@ -483,7 +483,9 @@ function atkMon(m){
 function lvlUp(){
   let needed=player.level*10;
   if(player.xp>=needed){
-    player.xp-=needed;player.level++;player.mhp+=5;player.hp=Math.min(player.hp+5,player.mhp);player.atk++;player.def++;
+    player.xp-=needed;player.level++;
+    let hpGain=player.hpGrowth||5;
+    player.mhp+=hpGain;player.hp=Math.min(player.hp+hpGain,player.mhp);player.atk++;player.def++;
     if(player.level%3===0){player.skillPts=(player.skillPts||0)+1;addLog('Skill point earned! [T] to spend',8)}
     addLog('LEVEL UP! Lv'+player.level,3);
     let cls=CLASSES.find(cl=>cl.name===player.cls);
