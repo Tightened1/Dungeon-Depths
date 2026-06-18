@@ -165,6 +165,7 @@ function mkMonsters(){
   if(bossFloor){
     let bIdx=Math.min(Math.floor((floor-1)/5)-1,bossOrder.length-1);
     let bt={...bossOrder[Math.max(0,bIdx)]};
+    if(floor>=MAX_FLOOR){ bt={...BOSS_TYPES.find(b=>b.isFinal)}; } // floor 100: God Demon
     let sf=(diffScale>1?diffScale:1)*(floor>20?(1+(floor-20)*0.06):1);
     bt.mhp=Math.floor(bt.hp*sf);bt.hp=bt.mhp;bt.atk=Math.floor(bt.atk*sf);bt.def=Math.floor(bt.def*sf);
     bt.xp=Math.floor(bt.xp*sf);bt.gold=Math.floor(bt.gold*sf);
@@ -187,12 +188,38 @@ function mkMonsters(){
     addLog('⚠ BOSS FLOOR! '+bt.name+' awaits!',2);return;
   }
   let cnt=Math.min(4+floor*2,20);
+  // ── PRESTIGE HARD MODE: themed floors ──
+  // Every floor picks a theme: a single deadly monster type en masse, or (1 in 5)
+  // a multi-boss floor. Density and elite chance are raised throughout.
+  let prestigeType=null, prestigeMultiBoss=false;
+  if(prestigeRun){
+    cnt=Math.min(7+floor*2,28);
+    let roll=tileHashSafe(floor);
+    if(floor>=3 && roll%5===0){ prestigeMultiBoss=true; }
+    else {
+      // pick a dangerous type for this floor (Dragon, Demon, Lich, Troll, Werewolf)
+      let pool=['D','&','L','T','W'];
+      prestigeType=pool[roll%pool.length];
+    }
+  }
+  if(prestigeMultiBoss){
+    let nB=rnd(2,3);
+    for(let i=0;i<nB;i++){
+      let bt={...BOSS_TYPES[rnd(0,4)]}; // any of the 5 non-final bosses
+      let sf=(diffScale>1?diffScale:1)*(1+(floor-20>0?floor-20:0)*0.06)*0.7;
+      let rm=G.rooms[rnd(1,G.rooms.length-1)];
+      monsters.push({...bt,x:rm.cx,y:rm.cy,mhp:Math.floor(bt.hp*sf),hp:Math.floor(bt.hp*sf),
+        atk:Math.floor(bt.atk*sf),def:Math.floor(bt.def*sf),id:Math.random(),stun:0,poison:0,isBoss:true,bossRef:bt});
+    }
+    bossActive=true;
+    addLog('⚔ PRESTIGE: a gauntlet of '+nB+' bosses!',2);
+  }
   for(let i=0;i<cnt;i++){
     let rm=G.rooms[rnd(1,G.rooms.length-1)];
     let mx=rnd(rm.x,rm.x+rm.w-1),my=rnd(rm.y,rm.y+rm.h-1);
     if(mx===player.x&&my===player.y)continue;
     let maxT=Math.min(Math.floor(floor/2),MTYPES.length-1);
-    let mt=MTYPES[rnd(0,maxT)];
+    let mt=prestigeType?(MTYPES.find(t=>t.sym===prestigeType)||MTYPES[rnd(0,maxT)]):MTYPES[rnd(0,maxT)];
     let deepRamp=floor>20?(1+(floor-20)*0.06):1; 
     let scHP=(1+floor*0.085)*diffScale*deepRamp;
     let scATK=(1+floor*0.065)*(1+(diffScale-1)*0.6)*deepRamp; // ATK grows gentler than HP
@@ -200,12 +227,16 @@ function mkMonsters(){
     let sATK=Math.min(Math.floor(mt.atk*scATK),90);
     let sDEF=Math.min(Math.floor(mt.def*(1+floor*0.05)*diffScale),45);
     let mon={...mt,x:mx,y:my,mhp:sHP,hp:sHP,atk:sATK,def:sDEF,id:Math.random(),stun:0,poison:0};
-    // Elite roll — chance rises with depth, none on floor 1
+    // Elite roll — chance rises with depth; much higher in prestige mode
     let eliteChance=floor<=1?0:Math.min(0.22,0.05+floor*0.012);
+    if(prestigeRun)eliteChance=Math.min(0.5,eliteChance+0.2);
     if(Math.random()<eliteChance)makeElite(mon);
     monsters.push(mon);
   }
+  if(prestigeType){let nm=(MTYPES.find(t=>t.sym===prestigeType)||{}).name||'horrors';addLog('⚔ PRESTIGE: a floor swarming with '+nm+'s!',2);}
 }
+// stable per-floor hash so a floor's theme is consistent if regenerated
+function tileHashSafe(f){return Math.abs(Math.floor(Math.sin(f*97.13)*10000))}
 
 // ══ ELITE ENEMIES ══
 // Each elite gets one modifier with a visual tell and a gameplay twist.
@@ -350,6 +381,24 @@ function openChest(chest){
 function chestAt(x,y){return (G.chests||[]).find(c=>c.x===x&&c.y===y&&!c.opened)}
 
 // ══ FOV ══
+// ══ LINE OF SIGHT ══
+// True if a straight line from (x0,y0) to (x1,y1) is unobstructed by walls.
+// Used to stop ranged abilities (player and enemy) from firing through walls/corners.
+function hasLOS(x0,y0,x1,y1){
+  let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+  let sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx-dy, x=x0, y=y0;
+  while(true){
+    if(!(x===x0&&y===y0)&&!(x===x1&&y===y1)){
+      if(!inB(x,y)||G.tiles[y][x]==='#')return false; // wall blocks the shot
+    }
+    if(x===x1&&y===y1)return true;
+    let e2=2*err;
+    if(e2>-dy){err-=dy;x+=sx;}
+    if(e2<dx){err+=dx;y+=sy;}
+  }
+}
+
 function fov(){
   let C=cols(),R=rows();
   G.vis=Array(R).fill(null).map(()=>Array(C).fill(false));

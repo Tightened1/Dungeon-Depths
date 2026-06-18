@@ -141,7 +141,7 @@ function moveMons(){
 
     // ── Ranged attacks (Vampire, Lich, Dragon + bosses) ──
     let rng=m.rangeAtk||(m.isBoss&&m.bossAbil?6:0);
-    if(rng&&dist>1&&dist<=rng&&!(m.isBoss)&&Math.random()<0.4){
+    if(rng&&dist>1&&dist<=rng&&!(m.isBoss)&&hasLOS(m.x,m.y,player.x,player.y)&&Math.random()<0.4){
       let rdmg=Math.max(1,Math.floor(m.atk*0.7)-Math.floor(effStat('def')*0.5));
       if(player.cloakActive&&rdmg>0){addLog('Phantom Cloak absorbs '+m.name+'!',5);player.cloakActive=false;rdmg=0;}
       if(player.mirrorActive&&rdmg>0){player.mirrorActive=false;player.mirrorBroken=true;}
@@ -356,6 +356,20 @@ function killMon(m){
   if(m.isBoss)triggerShake(8,12);
   updateAnims();
   if(m.isBoss){
+    // ── FINAL BOSS: victory! ──
+    if(m.isFinal||m.name==='GOD DEMON'){
+      bossActive=false;
+      triggerShake(12,20);
+      try{localStorage.setItem('dd_prestige_unlocked','1')}catch(e){}
+      prestigeUnlocked=true;
+      victoryWin=true; gameOver=true;
+      addLog('★ THE GOD DEMON FALLS! YOU HAVE CONQUERED THE DEPTHS! ★',7);
+      addLog('★ PRESTIGE CLASS UNLOCKED — choose it on the title screen! ★',7);
+      clearSave();
+      if(typeof lbOnDeath==='function')lbOnDeath(); // a win is leaderboard-worthy too
+      drawAll();
+      return;
+    }
     bossesKilled++;
     const DIFF_CURVE=[1,1.25,1.5,1.8,2.1,2.45];
     diffScale=DIFF_CURVE[Math.min(bossesKilled,DIFF_CURVE.length-1)];
@@ -505,6 +519,9 @@ function lvlUp(){
 
 function findEmptyNear(x,y){for(let r=1;r<=3;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(inB(nx,ny)&&G.tiles[ny][nx]!=='#'&&!monsters.some(m=>m.x===nx&&m.y===ny&&m.hp>0))return{x:nx,y:ny}}return{x,y}}
 function getNodeRank(n){return(player.treeNodes&&player.treeNodes[n])||0}
+// A monster is a valid ranged target only if alive, visible, AND in line of sight
+// (no wall between it and the player). Stops shooting through walls/corners.
+function canTarget(m){return canTarget(m)&&hasLOS(player.x,player.y,m.x,m.y)}
 
 // ══ ABILITIES ══
 function useAbility(idx){
@@ -516,7 +533,7 @@ function useAbility(idx){
   // Fireball scales with tree rank
   if(ab.name==='Fireball'){
     let fr=getNodeRank('Fireball'),fdm=(0.6+fr*0.7)*adm;
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<nd){nd=d;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<nd){nd=d;near=m}}});
     let cx=near?near.x:player.x+2,cy=near?near.y:player.y;
     spawnAnim('fireball',player.x,player.y,cx,cy,'#e87a3a');
     let h=0,dbl=Object.values(player.eq||{}).some(it=>it&&it.affixes&&it.affixes.some(af=>af.id==='fireballdouble'));
@@ -527,7 +544,7 @@ function useAbility(idx){
   }
   else if(ab.name==='Long Shot'){
     let rng=(ab.range||6)+(player.rangedBonus||0);
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=rng&&d<nd){nd=d;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=rng&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target in range!',2);return}
     spawnAnim('fireball',player.x,player.y,near.x,near.y,'#cce85a');
     let rmult=2.2*(1+(player.rangedBonus||0)*0.06);
@@ -538,19 +555,26 @@ function useAbility(idx){
   }
   else if(ab.name==='Multi Shot'){
     let rng=(ab.range||5)+(player.rangedBonus||0);
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let dd=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(dd<=rng&&dd<nd){nd=dd;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let dd=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(dd<=rng&&dd<nd){nd=dd;near=m}}});
     if(!near){addLog('No target in range!',2);return}
     let dirx=Math.sign(near.x-player.x), diry=Math.sign(near.y-player.y);
     if(dirx===0&&diry===0)diry=-1;
-    let hits=monsters.filter(m=>m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]&&Math.sign(m.x-player.x)===dirx&&Math.sign(m.y-player.y)===diry&&(Math.abs(m.x-player.x)+Math.abs(m.y-player.y))<=rng)
+    let hits=monsters.filter(m=>canTarget(m)&&Math.sign(m.x-player.x)===dirx&&Math.sign(m.y-player.y)===diry&&(Math.abs(m.x-player.x)+Math.abs(m.y-player.y))<=rng)
                      .sort((a,b)=>(Math.abs(a.x-player.x)+Math.abs(a.y-player.y))-(Math.abs(b.x-player.x)+Math.abs(b.y-player.y)))
                      .slice(0,3);
     let rmult=1.0*(1+(player.rangedBonus||0)*0.06);
     hits.forEach(m=>{spawnAnim('fireball',player.x,player.y,m.x,m.y,'#aadd55');let crit=(player.deadeye&&Math.random()*100<player.deadeye);let d=hurt(m,calcDmg(atk*rmult*adm,m.def)*(crit?2:1));if(m.hp<=0)killMon(m)});
     addLog('Multi Shot hits '+hits.length+'!',4);did=true;
   }
+  else if(ab.name==='Cataclysm'){
+    let h=0,r=3;
+    monsters.forEach(m=>{if(m.hp>0&&Math.abs(m.x-player.x)<=r&&Math.abs(m.y-player.y)<=r){let d=hurt(m,calcDmg(atk*4*adm,m.def));h++;spawnP(m.x,m.y,'#ffcc33','death');if(m.hp<=0)killMon(m)}});
+    spawnAnim('explosion',player.x,player.y,player.x,player.y,'#ffcc33');
+    triggerShake(8,12);
+    addLog('CATACLYSM! '+h+' enemies seared!',7);did=true;
+  }
   else if(ab.name==='Magic Missile'){
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=(ab.range||2)&&d<nd){nd=d;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=(ab.range||2)&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target in range!',2);return}
     spawnAnim('fireball',player.x,player.y,near.x,near.y,'#c85ae8');
     let d=hurt(near,calcDmg(atk*1.2*adm,near.def));addLog('Magic Missile -'+d,1);if(near.hp<=0)killMon(near);did=true;
@@ -568,7 +592,7 @@ function useAbility(idx){
     addLog('Chain Lightning: '+targets.length+' struck!',3);did=true;
   }
   else if(ab.name==='Frost Bolt'){
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=5&&d<nd){nd=d;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=5&&d<nd){nd=d;near=m}}});
     if(!near){addLog('No target!',2);return}
     spawnAnim('ice',player.x,player.y,near.x,near.y,'#5aaae8');
     let d=hurt(near,calcDmg(atk*2.5*adm,near.def));near.stun=2;addLog('Frost Bolt: '+near.name+' frozen -'+d,4);if(near.hp<=0)killMon(near);did=true;
@@ -589,7 +613,7 @@ function useAbility(idx){
     addLog(ab.name+': -'+d+'!',7);if(best.hp<=0)killMon(best);did=true;
   }
   else if(ab.name==='Meteor'){
-    let near=null,nd=999;monsters.forEach(m=>{if(m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<nd){nd=d;near=m}}});
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<nd){nd=d;near=m}}});
     let cx=near?near.x:player.x,cy=near?near.y:player.y-3;
     spawnAnim('explosion',cx,cy,cx,cy,'#e87a3a');let h=0;
     monsters.forEach(m=>{if(Math.abs(m.x-cx)<=1&&Math.abs(m.y-cy)<=1&&m.hp>0){let d=hurt(m,calcDmg(atk*5*adm,m.def));h++;if(m.hp<=0)killMon(m)}});
@@ -647,7 +671,7 @@ function useAbility(idx){
   else if(ab.name==='Shadow Walk'){player.stealthed=3;player.ghost=3;addLog('Shadow Walk: unseen 3 turns!',5);did=true;}
   else if(ab.name==='Ghost Form'){player.ghost=2;player.shielded=2;addLog('Ghost Form: untargetable!',5);did=true;}
   else if(ab.name==='Disguise'){
-    let near=monsters.find(m=>m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]);
+    let near=monsters.find(m=>canTarget(m));
     if(!near){addLog('No visible enemy!',2);return}
     player.disguise=5;player.disguisedAtk=near.atk;addLog('Disguised as '+near.name+'!',5);did=true;
   }
@@ -669,7 +693,7 @@ function useAbility(idx){
   else if(ab.name==='Sanctuary'){player.sanctuary=2;addLog('Sanctuary: dmg=1 for 2 turns!',6);did=true;}
   else if(ab.name==='Sacred Vow'){player.sacredVow=45;addLog('Sacred Vow: absorb 45 dmg!',6);did=true;}
   else if(ab.name==='Radiance'){
-    let h=0;monsters.forEach(m=>{if(G.vis[m.y]&&G.vis[m.y][m.x]&&m.hp>0){m.stun=Math.max(m.stun||0,3);m.blind=3;h++}});
+    let h=0;monsters.forEach(m=>{if(canTarget(m)){m.stun=Math.max(m.stun||0,3);m.blind=3;h++}});
     addLog('Radiance: '+h+' enemies blinded for 3 turns!',6);did=true;
   }
   else if(ab.name==='Holy Bolt'){
@@ -723,7 +747,7 @@ function useAbility(idx){
   else if(ab.name==='Raise Skeleton'||ab.name==='Summon Vampire'||ab.name==='Raise Dragon'){
     // Enforce minion cap — default 1, +1 per Army of Bones rank
     let activeMinions=monsters.filter(m=>m.isMinion&&!m._dead&&m.hp>0).length;
-    let maxMinions=player.maxMinions||1;
+    let maxMinions=player.maxMinions||2;
     if(activeMinions>=maxMinions){
       addLog('Minion limit reached! ('+activeMinions+'/'+maxMinions+') Unlock Army of Bones to raise more.',2);
       return;
@@ -733,7 +757,12 @@ function useAbility(idx){
     if(player.hp<=reserveAmt+5){addLog('Not enough HP to summon!',2);return}
     let tier=ab.name==='Raise Dragon'?9:ab.name==='Summon Vampire'?4:3; // 3=Skeleton, 4=Vampire, 9=Dragon
     let mt={...MTYPES[tier]};
-    let slot=findEmptyNear(player.x,player.y);
+    // Spawn in FRONT of the player (the way they're facing); fall back to any nearby tile.
+    let fc=FACINGS[player.facing||0];
+    let fx=player.x+fc.dx, fy=player.y+fc.dy;
+    let slot;
+    if(inB(fx,fy)&&G.tiles[fy][fx]!=='#'&&!monsters.some(m=>m.x===fx&&m.y===fy&&m.hp>0)) slot={x:fx,y:fy};
+    else slot=findEmptyNear(player.x,player.y);
     let sc=1+floor*0.1;
     mt.x=slot.x;mt.y=slot.y;
     mt.hp=Math.floor(mt.hp*sc+(player.minionBonus||0));mt.mhp=mt.hp;

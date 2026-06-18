@@ -92,12 +92,13 @@ function drawClassChooser(){
   let cardPad=6;
   let cardW=Math.floor((cw-80-cardPad)/2);
   let availH=ch-topY-24;
-  let rows=Math.ceil(CLASSES.length/2);
+  let _vc=visibleClasses();
+  let rows=Math.ceil(_vc.length/2);
   let cardH=Math.floor((availH-(rows-1)*cardPad)/rows);
   // Clamp card height so text stays readable
   cardH=Math.min(cardH,110);
 
-  CLASSES.forEach((c,i)=>{
+  _vc.forEach((c,i)=>{
     let col=i%2,row=Math.floor(i/2);
     let cx2=40+col*(cardW+cardPad);
     let cy2=topY+row*(cardH+cardPad);
@@ -144,7 +145,7 @@ function drawClassChooser(){
   // Footer with a gentle pulse
   let fp2=0.4+Math.sin(titleT*3)*0.25;
   ctx.fillStyle=`rgba(150,120,70,${fp2})`;ctx.font=`10px "Share Tech Mono"`;ctx.textAlign='center';
-  ctx.fillText('Click a card or press [1]–['+CLASSES.length+'] to select',cw/2,ch-8);
+  ctx.fillText('Click a card or press [1]–['+visibleClasses().length+'] to select',cw/2,ch-8);
 
   // Hall of the Fallen — global top 10 (only when a leaderboard is configured)
   if(typeof drawLbTitlePanel==='function')drawLbTitlePanel(cw,ch);
@@ -173,10 +174,11 @@ canvas.addEventListener('mousemove',e=>{
     let cardPad=6;
     let cardW=Math.floor((cw-80-cardPad)/2);
     let availH=ch-topY-24;
-    let rows=Math.ceil(CLASSES.length/2);
+    let _vch=visibleClasses();
+    let rows=Math.ceil(_vch.length/2);
     let cardH=Math.min(Math.floor((availH-(rows-1)*cardPad)/rows),110);
     titleHover=-1;
-    CLASSES.forEach((c,i)=>{
+    _vch.forEach((c,i)=>{
       let col=i%2,row=Math.floor(i/2);
       let cx2=40+col*(cardW+cardPad),cy2=topY+row*(cardH+cardPad);
       if(mx>=cx2&&mx<=cx2+cardW&&my>=cy2&&my<=cy2+cardH)titleHover=i;
@@ -310,12 +312,13 @@ canvas.addEventListener('click',e=>{
     let cardPad=6;
     let cardW=Math.floor((cw-80-cardPad)/2);
     let availH=ch-topY-24;
-    let rows=Math.ceil(CLASSES.length/2);
+    let _vcc=visibleClasses();
+    let rows=Math.ceil(_vcc.length/2);
     let cardH=Math.min(Math.floor((availH-(rows-1)*cardPad)/rows),110);
-    CLASSES.forEach((c,i)=>{
+    _vcc.forEach((c,i)=>{
       let col=i%2,row=Math.floor(i/2);
       let cx2=40+col*(cardW+cardPad),cy2=topY+row*(cardH+cardPad);
-      if(mx>=cx2&&mx<=cx2+cardW&&my>=cy2&&my<=cy2+cardH)chooseClass(i);
+      if(mx>=cx2&&mx<=cx2+cardW&&my>=cy2&&my<=cy2+cardH)chooseClass(CLASSES.indexOf(c));
     });
     return;
   }
@@ -332,6 +335,9 @@ canvas.addEventListener('click',e=>{
   }
 });
 
+// Classes available on the title screen: the prestige class is hidden until unlocked.
+function visibleClasses(){return CLASSES.filter(c=>!c.prestige||prestigeUnlocked)}
+
 function chooseClass(ci){
   let c=CLASSES[ci];
   player={x:0,y:0,cls:c.name,sym:'@',color:c.color,hp:c.hp,mhp:c.hp,atk:c.atk,def:c.def,
@@ -341,8 +347,20 @@ function chooseClass(ci){
     abilities:c.baseAbils.map(a=>({...a,cd:0})),inventory:[],eq:{weapon:null,armor:null,ring:null,amulet:null}};
   // Per-class HP-per-level: lower base HP → faster growth, so squishy classes
   // close the late-game survivability gap without losing early-game fragility.
-  let _hpg={Warrior:5,Paladin:5,Cleric:6,Rogue:7,Necromancer:7,Mage:8};
+  let _hpg={Warrior:5,Paladin:5,Cleric:6,Rogue:7,Necromancer:7,Mage:8,Godslayer:8};
   player.hpGrowth=_hpg[c.name]||5;
+  // Prestige class starts maxed and flags the run as prestige (themed hard mode).
+  if(c.prestige){
+    prestigeRun=true;
+    player.eq.weapon={...(WEAPONS.find(w=>w.name==='Godslayer')||{name:'Godslayer',atk:20,rare:3}),type:'weapon',level:5};
+    let bestArmor=ARMORS.filter(a=>a.rare===3).sort((a,b)=>(b.def||0)-(a.def||0))[0];
+    let bestRing=RINGS.filter(a=>a.rare===3)[0];
+    let bestAml=AMULETS.filter(a=>a.rare===3)[0];
+    if(bestArmor)player.eq.armor={...bestArmor,type:'armor',level:5};
+    if(bestRing)player.eq.ring={...bestRing,type:'ring',level:5};
+    if(bestAml)player.eq.amulet={...bestAml,type:'amulet',level:5};
+    player.gold=500; player.skillPts=4;
+  } else { prestigeRun=false; }
   classChooser=false;specChooser=true;drawAll();
 }
 
@@ -557,7 +575,7 @@ document.addEventListener('keydown',e=>{
   if(classChooser){
     if((e.key==='c'||e.key==='C')&&hasSave()){if(loadGame())return;}
     let n=parseInt(e.key)-1;
-    if(n>=0&&n<CLASSES.length)chooseClass(n);
+    let _vc2=visibleClasses(); if(n>=0&&n<_vc2.length)chooseClass(CLASSES.indexOf(_vc2[n]));
     return;
   }
   if(specChooser){
@@ -574,7 +592,7 @@ document.addEventListener('keydown',e=>{
   if(relicOpen)return;
   if(gameOver){
     if(typeof lbHandleDeathKey==='function'&&lbHandleDeathKey(e))return;
-    if(e.key==='r'||e.key==='R'){if(typeof lbReset==='function')lbReset();if(typeof debugPanelOpen!=='undefined'){debugPanelOpen=false;debugUnlocked=false;if(typeof renderDebugPanel==='function')renderDebugPanel();}gameOver=false;hitFlash=0;classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
+    if(e.key==='r'||e.key==='R'){if(typeof lbReset==='function')lbReset();if(typeof debugPanelOpen!=='undefined'){debugPanelOpen=false;debugUnlocked=false;if(typeof renderDebugPanel==='function')renderDebugPanel();}gameOver=false;victoryWin=false;hitFlash=0;classChooser=true;specChooser=false;relicOpen=false;floor=1;turn=0;bossesKilled=0;totalKills=0;diffScale=1;bossFloor=false;bossActive=false;msgs=[];particles=[];anims=[];bossOrder=[];document.getElementById("relic-overlay").classList.remove("open");drawAll()}return}
   // Toggle first-person / top-down
   if(e.key==='f'||e.key==='F'){fpMode=!fpMode;if(fpMode&&player.angle===undefined)player.angle=faceToAngle(player.facing||1);if(!fpMode)maybeReleasePointerLock();addLog(fpMode?'First-person — mouse-look or ←/→ to turn, WASD to move/strafe, F to exit':'Top-down view',8);fov();updateUI();drawAll();return}
   if(e.key==='1')useAbility(0);if(e.key==='2')useAbility(1);if(e.key==='3')useAbility(2);if(e.key==='4')useAbility(3);

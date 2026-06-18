@@ -1135,26 +1135,36 @@ function drawBossHUD(){
 // Death screen — drawn over a darkened battlefield when the hero falls
 function drawDead(){
   let W=canvas.width,H=canvas.height,cx=W/2,cy=H/2;
-  // Ensure the transient floor-intro card never overlaps the death summary
   let _fi=document.getElementById('floor-intro');if(_fi)_fi.classList.remove('show');
+  let win=(typeof victoryWin!=='undefined'&&victoryWin);
   // Darken whole screen
   ctx.fillStyle='rgba(4,2,8,0.82)';ctx.fillRect(0,0,W,H);
-  // Blood-red radial pulse from centre
+  // Radial pulse — gold for victory, blood-red for death
   let a=0.28+Math.sin(animT*2)*0.10;
   let grad=ctx.createRadialGradient(cx,cy,H*0.12,cx,cy,H*0.9);
-  grad.addColorStop(0,`rgba(120,10,10,${a})`);grad.addColorStop(1,'rgba(0,0,0,0)');
+  if(win){grad.addColorStop(0,`rgba(190,150,30,${a})`);}else{grad.addColorStop(0,`rgba(120,10,10,${a})`);}
+  grad.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
 
   // Summary card
   let cardW=320,cardH=210,bx=cx-cardW/2,by=cy-cardH/2;
   ctx.fillStyle='rgba(10,5,12,0.7)';ctx.fillRect(bx,by,cardW,cardH);
-  ctx.strokeStyle='rgba(150,30,30,0.6)';ctx.lineWidth=1;ctx.strokeRect(bx,by,cardW,cardH);
+  ctx.strokeStyle=win?'rgba(201,162,39,0.7)':'rgba(150,30,30,0.6)';ctx.lineWidth=1;ctx.strokeRect(bx,by,cardW,cardH);
 
   ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillStyle='#c92020';ctx.font='bold 34px Cinzel,serif';
-  ctx.shadowColor='#ff0000';ctx.shadowBlur=24;
-  ctx.fillText('YOU DIED',cx,by+38);
-  ctx.shadowBlur=0;
+  if(win){
+    ctx.fillStyle='#ffcc33';ctx.font='bold 26px Cinzel,serif';
+    ctx.shadowColor='#ffaa00';ctx.shadowBlur=24;
+    ctx.fillText('VICTORY',cx,by+34);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,220,150,0.9)';ctx.font='10px "Share Tech Mono"';
+    ctx.fillText('The God Demon is slain — Prestige unlocked!',cx,by+58);
+  } else {
+    ctx.fillStyle='#c92020';ctx.font='bold 34px Cinzel,serif';
+    ctx.shadowColor='#ff0000';ctx.shadowBlur=24;
+    ctx.fillText('YOU DIED',cx,by+38);
+    ctx.shadowBlur=0;
+  }
 
   // Class / spec line
   ctx.fillStyle='rgba(200,170,110,0.9)';ctx.font='12px "Share Tech Mono"';

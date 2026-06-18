@@ -11,6 +11,10 @@ function rows(){return Math.floor(canvas.height/TH)}
 let G={},player={},monsters=[],items=[],anims=[],turn=0,floor=1,gameOver=false,msgs=[],particles=[];
 let invOpen=false,merchOpen=false,treeOpen=false,selIdx=-1,pendingDiscard=false;
 let classChooser=true,specChooser=false,bossesKilled=0,diffScale=1,bossActive=false,bossFloor=false;
+// Prestige: unlocked by defeating the God Demon on floor 100. Persists across sessions.
+let victoryWin=false;
+let prestigeRun=false; // true when playing the prestige class → themed hard-mode floors
+let prestigeUnlocked=(()=>{try{return localStorage.getItem('dd_prestige_unlocked')==='1'}catch(e){return false}})();
 let animT=0,flickerT=0,catOpen={weapons:true,armor:true,rings:true,amulets:true,potions:true};
 let merchantItems=[],merchantSellSel=new Set(),selectedPath=0;
 let floorKills=0,floorItemsFound=0; // floor summary tracking
@@ -24,7 +28,7 @@ const FACINGS=[{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}]; // N,E,S,W
 // Permadeath stays intact: the save is wiped on death. Functions are not
 // serializable, so relics and item affixes are rehydrated by id on load.
 const SAVE_KEY='dungeon_depths_save_v1';
-const SAVE_VERSION=4; // endless deep-floor scaling
+const SAVE_VERSION=5; // floor-100 finale, prestige class, upgrade cap 10
 let _savePeek; // cached parsed save for the title-screen banner
 // A save is only valid if it parses, matches the current version, and has the
 // core fields. Anything else (corrupt, or from a future/older game build) is
@@ -97,7 +101,7 @@ function loadGame(){
 const RARE_COLORS={0:'#8a8a6a',1:'#5aaae8',2:'#c85ae8',3:'#e8a020',4:'#ff5555'};
 const RARE_NAMES={0:'Common',1:'Uncommon',2:'Rare',3:'Legendary',4:'Boss Drop'};
 const RARE_BG={0:'#1a1a12',1:'#122030',2:'#200e30',3:'#251806',4:'#2a0808'};
-const MAX_ITEM_LVL=5;
+const MAX_ITEM_LVL=10;
 const UPGRADEABLE=['weapon','armor','ring','amulet'];
 
 // ══ CLASSES ══ ATK order: Warrior > Rogue > Paladin > Necromancer > Cleric > Mage (Mage spells scale high)
@@ -229,7 +233,7 @@ const CLASSES=[
    paths:[
     {name:'Undead Army',color:'#55cc88',desc:'Raise powerful undead allies',nodes:[
       {name:'Raise Skeleton',desc:'Active: Summon skeleton ally. Reserves 12% max HP while active. Despawns after 80 turns, restoring HP. CD5',ranks:1,costPer:1,isAbil:true,abilDef:{name:'Raise Skeleton',desc:'Summon skeleton (reserves 12% HP, 80 turns)',cd:0,max:5,range:0,aoe:false,isSpell:false}},
-      {name:'Army of Bones',desc:'Raise your minion cap. Rank 1 = 2 minions, Rank 2 = 3, Rank 3 = 4 simultaneously.',ranks:3,costPer:1,effect:(p,r)=>{p.maxMinions=(p.maxMinions||1)+1},label:'+1 max minions per rank (base: 1)'},
+      {name:'Army of Bones',desc:'Raise your minion cap. Rank 1 = 3, Rank 2 = 4, Rank 3 = 5 simultaneously.',ranks:3,costPer:1,effect:(p,r)=>{p.maxMinions=(p.maxMinions||2)+1},label:'+1 max minions per rank (base: 2)'},
       {name:'Warlord',desc:'Minions deal +5 dmg per rank',ranks:2,costPer:2,effect:(p,r)=>{p.minionBonus=(p.minionBonus||0)+5},label:'+5 minion dmg per rank'},
       {name:'Raise Dragon',desc:'Active: Raise a powerful dragon minion. No HP cost. CD15',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Raise Dragon',desc:'Raise a dragon ally (no HP cost)',cd:0,max:15,range:0,aoe:false,isSpell:false}},
     ]},
@@ -244,6 +248,25 @@ const CLASSES=[
       {name:'Epidemic',desc:'Poison spreads on enemy death',ranks:1,costPer:2,effect:(p,r)=>{p.epidemic=true},label:'Poison spreads on kill'},
       {name:'Rot Cloud',desc:'Active: 5x5 poison cloud CD7',ranks:1,costPer:2,isAbil:true,abilDef:{name:'Rot Cloud',desc:'5x5 poison cloud',cd:0,max:7,range:4,aoe:true,isSpell:true}},
       {name:'Pandemic',desc:'+3 poison dmg, poisoned explode on death per rank',ranks:2,costPer:3,effect:(p,r)=>{p.pandemic=(p.pandemic||0)+3},label:'+3 poison + death burst'},
+    ]}
+   ]},
+  // ── PRESTIGE CLASS (unlocked by defeating the God Demon) ──
+  // Starts maxed: huge stats, all abilities, a legendary weapon. Filtered out of
+  // the class chooser unless prestigeUnlocked. Selecting it flags the run as
+  // prestige mode → themed hard-mode floors (handled in mkMonsters).
+  {name:'Godslayer',hp:80,atk:24,def:14,color:'#ffcc33',sym:'@',prestige:true,desc:'PRESTIGE — maxed hero. Faces a far deadlier dungeon.',
+   baseAbils:[
+     {name:'Legendary Edge',desc:'Next attack 5x dmg',key:'1',cd:0,max:6,range:1,aoe:false,isSpell:false},
+     {name:'Whirlwind',desc:'Hit all 8 adjacent',key:'2',cd:0,max:4,range:1,aoe:true,isSpell:false},
+     {name:'Heavenly Bolt',desc:'4x ranged smite',key:'3',cd:0,max:5,range:7,aoe:false,isSpell:true},
+     {name:'Multi Shot',desc:'Hits 3 in a line',key:'4',cd:0,max:4,range:6,aoe:true,isSpell:false},
+   ],
+   paths:[
+    {name:'Ascendant',color:'#ffcc33',desc:'A god among mortals — every strength at once',nodes:[
+      {name:'Divine Might',desc:'+6 ATK per rank',ranks:3,costPer:1,effect:(p,r)=>{p.atk+=6},label:'+6 ATK'},
+      {name:'Aegis',desc:'+20 Max HP & +3 DEF per rank',ranks:3,costPer:1,effect:(p,r)=>{p.mhp+=20;p.hp+=20;p.def+=3},label:'+20 HP +3 DEF'},
+      {name:'Soul Reaver',desc:'+8 HP on kill per rank',ranks:2,costPer:2,effect:(p,r)=>{p.wpnLifesteal=(p.wpnLifesteal||0)+8},label:'+8 HP on kill'},
+      {name:'Cataclysm',desc:'Active: massive 6x6 blast CD8',ranks:1,costPer:3,isAbil:true,abilDef:{name:'Cataclysm',desc:'6x6 blast',cd:0,max:8,range:6,aoe:true,isSpell:true}},
     ]}
    ]}
 ];
@@ -267,7 +290,9 @@ const BOSS_TYPES=[
   {name:'IRON COLOSSUS',sym:'C',hp:220,atk:18,def:16,xp:120,gold:90,col:'#88aacc',sight:12,bossAbil:'shockwave'},
   {name:'SHADOW LORD',sym:'S',hp:200,atk:28,def:12,xp:140,gold:100,col:'#6633cc',sight:16,bossAbil:'shadow_nova'},
   {name:'VOID DRAGON',sym:'X',hp:320,atk:36,def:18,xp:220,gold:160,col:'#ff3333',sight:18,bossAbil:'void_breath'},
+  {name:'GOD DEMON',sym:'@',hp:900,atk:48,def:24,xp:1000,gold:500,col:'#ffcc33',sight:20,bossAbil:'void_breath',isFinal:true},
 ];
+const MAX_FLOOR=100;
 
 // ══ ITEMS ══
 const WEAPONS=[
