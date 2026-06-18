@@ -24,7 +24,7 @@ const FACINGS=[{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}]; // N,E,S,W
 // Permadeath stays intact: the save is wiped on death. Functions are not
 // serializable, so relics and item affixes are rehydrated by id on load.
 const SAVE_KEY='dungeon_depths_save_v1';
-const SAVE_VERSION=3; // difficulty curve retune + per-class HP growth
+const SAVE_VERSION=4; // endless deep-floor scaling
 let _savePeek; // cached parsed save for the title-screen banner
 // A save is only valid if it parses, matches the current version, and has the
 // core fields. Anything else (corrupt, or from a future/older game build) is

@@ -165,7 +165,7 @@ function mkMonsters(){
   if(bossFloor){
     let bIdx=Math.min(Math.floor((floor-1)/5)-1,bossOrder.length-1);
     let bt={...bossOrder[Math.max(0,bIdx)]};
-    let sf=diffScale>1?diffScale:1;
+    let sf=(diffScale>1?diffScale:1)*(floor>20?(1+(floor-20)*0.06):1);
     bt.mhp=Math.floor(bt.hp*sf);bt.hp=bt.mhp;bt.atk=Math.floor(bt.atk*sf);bt.def=Math.floor(bt.def*sf);
     bt.xp=Math.floor(bt.xp*sf);bt.gold=Math.floor(bt.gold*sf);
     let rm=G.rooms[Math.floor(G.rooms.length/2)];
@@ -174,12 +174,13 @@ function mkMonsters(){
     for(let i=0;i<rnd(2,4);i++){
       let tier=Math.min(floor-1,MTYPES.length-1);
       let mt=MTYPES[rnd(Math.max(0,tier-2),tier)];
-      let scHP=(1+floor*0.085)*diffScale;
-      let scATK=(1+floor*0.065)*(1+(diffScale-1)*0.6);
+      let deepRamp=floor>20?(1+(floor-20)*0.06):1; 
+      let scHP=(1+floor*0.085)*diffScale*deepRamp;
+      let scATK=(1+floor*0.065)*(1+(diffScale-1)*0.6)*deepRamp;
       let rm2=G.rooms[rnd(0,G.rooms.length-1)];
-      let bsHP=Math.min(Math.floor(mt.hp*scHP),460);
-      let bsATK=Math.min(Math.floor(mt.atk*scATK),54);
-      let bsDEF=Math.min(Math.floor(mt.def*(1+floor*0.05)*diffScale),30);
+      let bsHP=Math.min(Math.floor(mt.hp*scHP),1400);
+      let bsATK=Math.min(Math.floor(mt.atk*scATK),95);
+      let bsDEF=Math.min(Math.floor(mt.def*(1+floor*0.05)*diffScale),48);
       monsters.push({...mt,x:rnd(rm2.x,rm2.x+rm2.w-1),y:rnd(rm2.y,rm2.y+rm2.h-1),
         mhp:bsHP,hp:bsHP,atk:bsATK,def:bsDEF,id:Math.random(),stun:0,poison:0});
     }
@@ -192,11 +193,12 @@ function mkMonsters(){
     if(mx===player.x&&my===player.y)continue;
     let maxT=Math.min(Math.floor(floor/2),MTYPES.length-1);
     let mt=MTYPES[rnd(0,maxT)];
-    let scHP=(1+floor*0.085)*diffScale;
-    let scATK=(1+floor*0.065)*(1+(diffScale-1)*0.6); // ATK grows gentler than HP
-    let sHP=Math.min(Math.floor(mt.hp*scHP),420);
-    let sATK=Math.min(Math.floor(mt.atk*scATK),48);
-    let sDEF=Math.min(Math.floor(mt.def*(1+floor*0.05)*diffScale),26);
+    let deepRamp=floor>20?(1+(floor-20)*0.06):1; 
+    let scHP=(1+floor*0.085)*diffScale*deepRamp;
+    let scATK=(1+floor*0.065)*(1+(diffScale-1)*0.6)*deepRamp; // ATK grows gentler than HP
+    let sHP=Math.min(Math.floor(mt.hp*scHP),1400);
+    let sATK=Math.min(Math.floor(mt.atk*scATK),90);
+    let sDEF=Math.min(Math.floor(mt.def*(1+floor*0.05)*diffScale),45);
     let mon={...mt,x:mx,y:my,mhp:sHP,hp:sHP,atk:sATK,def:sDEF,id:Math.random(),stun:0,poison:0};
     // Elite roll — chance rises with depth, none on floor 1
     let eliteChance=floor<=1?0:Math.min(0.22,0.05+floor*0.012);
