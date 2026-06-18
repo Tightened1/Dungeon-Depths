@@ -980,7 +980,8 @@ function drawMons(){
       // Boss pulse aura
       let auraR=24+Math.sin(animT*3)*5;
       let grad=ctx.createRadialGradient(mx+TW/2,my+TH/2,2,mx+TW/2,my+TH/2,auraR);
-      grad.addColorStop(0,m.col+'55');grad.addColorStop(0.6,m.col+'22');grad.addColorStop(1,'transparent');
+      let _bc=m.col||'#ffcc44';
+      grad.addColorStop(0,_bc+'55');grad.addColorStop(0.6,_bc+'22');grad.addColorStop(1,'transparent');
       ctx.fillStyle=grad;ctx.fillRect(mx-auraR,my-auraR,TW+auraR*2,TH+auraR*2);
       // Ground shadow
       ctx.fillStyle='rgba(0,0,0,0.45)';

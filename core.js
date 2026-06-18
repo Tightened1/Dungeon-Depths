@@ -257,9 +257,9 @@ const CLASSES=[
   {name:'Godslayer',hp:80,atk:24,def:14,color:'#ffcc33',sym:'@',prestige:true,desc:'PRESTIGE — maxed hero. Faces a far deadlier dungeon.',
    baseAbils:[
      {name:'Legendary Edge',desc:'Next attack 5x dmg',key:'1',cd:0,max:6,range:1,aoe:false,isSpell:false},
-     {name:'Whirlwind',desc:'Hit all 8 adjacent',key:'2',cd:0,max:4,range:1,aoe:true,isSpell:false},
-     {name:'Heavenly Bolt',desc:'4x ranged smite',key:'3',cd:0,max:5,range:7,aoe:false,isSpell:true},
-     {name:'Multi Shot',desc:'Hits 3 in a line',key:'4',cd:0,max:4,range:6,aoe:true,isSpell:false},
+     {name:'Divine Judgment',desc:'Smite one foe — pierces boss bulwark',key:'2',cd:0,max:5,range:7,aoe:false,isSpell:true},
+     {name:'Wrath of the Fallen',desc:'Holy nova — strike ALL visible foes',key:'3',cd:0,max:7,range:99,aoe:true,isSpell:true},
+     {name:'Ascension',desc:'Invincible & +100% dmg for 3 turns',key:'4',cd:0,max:12,range:0,aoe:false,isSpell:false},
    ],
    paths:[
     {name:'Ascendant',color:'#ffcc33',desc:'A god among mortals — every strength at once',nodes:[

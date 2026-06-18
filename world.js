@@ -264,10 +264,10 @@ function makeElite(m){
 // Weighted rarity for chest items: 2% legendary, 20% rare, 35% uncommon, 43% common.
 function rollRarity(){
   let r=Math.random()*100;
-  if(r<2)return 3;        // legendary
-  if(r<22)return 2;       // rare
-  if(r<57)return 1;       // uncommon
-  return 0;               // common
+  if(r<0.5)return 3;      // legendary (rare!)
+  if(r<20.5)return 2;     // rare (~20%)
+  if(r<55.5)return 1;     // uncommon (~35%)
+  return 0;               // common (~44.5%)
 }
 // Pick a random item of a given rarity from a category pool; falls back to nearest tier.
 function pickItemOfRarity(pool,rare){

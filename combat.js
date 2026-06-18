@@ -9,6 +9,7 @@
 // (Self-inflicted ability costs like Sacrifice Strike intentionally bypass this.)
 function applyPlayerDamage(dmg){
   if(player._godmode)return 0;
+  if(player.ascension>0)return 0; // Godslayer Ascension: invincible
   return dmg;
 }
 
@@ -419,7 +420,7 @@ function killMon(m){
       monsters.forEach(o=>{if(o!==m&&o.hp>0&&!o._dead&&Math.abs(o.x-m.x)<=1&&Math.abs(o.y-m.y)<=1){o.hp-=ex;if(o.hp<=0)o._dead=true}});
     }
     // Legendary weapons drop ONLY from elites, at 10%
-    if(m.elite&&Math.random()<0.10){
+    if(m.elite&&Math.random()<0.02){
       let li=mkItem(WEAPONS,'weapon','weapon',3);li.x=m.x;li.y=m.y;items.push(li);floorItemsFound++;
       addLog('✦ LEGENDARY weapon drops from the '+(m.eliteName||'elite')+'!',8);
     }
@@ -472,6 +473,7 @@ function atkMon(m){
   let deathmarkHit=player.deathMark;if(deathmarkHit){mult=999;player.deathMark=false}
   let dmg=calcDmg(atk*mult*stealthMult,Math.max(0,m.def-manaburn));
   if(player.dmgMult)dmg=Math.floor(dmg*player.dmgMult); // Betrayer Ring etc. — outgoing damage boost
+  if(player.ascension>0)dmg=Math.floor(dmg*2); // Godslayer Ascension: +100% damage
   if(fpMode)fpSwing=1; // first-person weapon swing
   // Elite: Shielded — first few hits are largely absorbed
   if(m.elite==='shielded'&&m.shieldHits>0){
@@ -523,7 +525,7 @@ function findEmptyNear(x,y){for(let r=1;r<=3;r++)for(let dy=-r;dy<=r;dy++)for(le
 function getNodeRank(n){return(player.treeNodes&&player.treeNodes[n])||0}
 // A monster is a valid ranged target only if alive, visible, AND in line of sight
 // (no wall between it and the player). Stops shooting through walls/corners.
-function canTarget(m){return canTarget(m)&&hasLOS(player.x,player.y,m.x,m.y)}
+function canTarget(m){return m.hp>0&&G.vis[m.y]&&G.vis[m.y][m.x]&&hasLOS(player.x,player.y,m.x,m.y)}
 
 // ══ ABILITIES ══
 function useAbility(idx){
@@ -567,6 +569,35 @@ function useAbility(idx){
     let rmult=1.0*(1+(player.rangedBonus||0)*0.06);
     hits.forEach(m=>{spawnAnim('fireball',player.x,player.y,m.x,m.y,'#aadd55');let crit=(player.deadeye&&Math.random()*100<player.deadeye);let d=hurt(m,calcDmg(atk*rmult*adm,m.def)*(crit?2:1));if(m.hp<=0)killMon(m)});
     addLog('Multi Shot hits '+hits.length+'!',4);did=true;
+  }
+  else if(ab.name==='Divine Judgment'){
+    // Smite the nearest visible foe. Against bosses, pierces the bulwark:
+    // can deal up to 50% of max HP (vs the normal 35% single-hit cap).
+    let near=null,nd=999;monsters.forEach(m=>{if(canTarget(m)){let d=Math.abs(m.x-player.x)+Math.abs(m.y-player.y);if(d<=(ab.range||7)&&d<nd){nd=d;near=m}}});
+    if(!near){addLog('No target in sight!',2);return}
+    spawnAnim('fireball',player.x,player.y,near.x,near.y,'#ffe27a');
+    let raw=calcDmg(atk*6*adm,near.def);
+    let d;
+    if(near.isBoss){ d=Math.min(raw, Math.ceil(near.mhp*0.5)); near.hp-=d; } // pierces bulwark to 50%
+    else { d=hurt(near,raw); }
+    addLog('DIVINE JUDGMENT smites '+near.name+' -'+d+'!',8);
+    triggerShake(6,9);
+    if(near.hp<=0)killMon(near);did=true;
+  }
+  else if(ab.name==='Wrath of the Fallen'){
+    // Holy nova: strike every visible foe in line of sight.
+    let h=0;
+    monsters.slice().forEach(m=>{if(canTarget(m)){spawnAnim('fireball',player.x,player.y,m.x,m.y,'#fff0b0');let d=hurt(m,calcDmg(atk*2.2*adm,m.def));h++;if(m.hp<=0)killMon(m)}});
+    spawnAnim('explosion',player.x,player.y,player.x,player.y,'#fff0b0');
+    triggerShake(7,10);
+    addLog(h?('WRATH OF THE FALLEN strikes '+h+' foes!'):'No foes in sight!',h?7:2);
+    did=h>0; if(!h)return;
+  }
+  else if(ab.name==='Ascension'){
+    player.ascension=3;                  // turns of invincibility + double damage
+    player._godAscend=true;
+    spawnAnim('explosion',player.x,player.y,player.x,player.y,'#ffd23a');
+    addLog('ASCENSION! Invincible & doubled damage for 3 turns!',8);did=true;
   }
   else if(ab.name==='Cataclysm'){
     let h=0,r=3;
@@ -831,6 +862,7 @@ function doTurn(){
     if(player.sacredGround.turns<=0)player.sacredGround=null;
   }
   player.abilities.forEach(a=>{if(a.cd>0)a.cd--});
+  if(player.ascension>0){player.ascension--;if(player.ascension===0){player._godAscend=false;addLog('Ascension fades.',6);}}
   triggerAffix('onTurn');
   // Relic per-turn effects
   if(player.doomSeal)player.hp=Math.max(1,player.hp-5);
